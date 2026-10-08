@@ -1556,6 +1556,41 @@ function renderSongList(list){
   </div>`;
 }
 
+function renderSoundView(list){
+  const withAudio = list.filter(s =>
+    data.songVersions.some(v => v.songId===s.id && /^https?:\/\//.test(v.url||''))
+  );
+  if(!withAudio.length){
+    return `<div class="empty">Aucun morceau de ce groupe n'a encore d'enregistrement audio.<br><span class="small">Pour en ajouter : ouvre un morceau → Versions → + Version → Choisir un fichier.</span></div>`;
+  }
+  return `<div class="list">${withAudio.map(s=>{
+    const st = statusOf(s.status);
+    const versions = data.songVersions
+      .filter(v => v.songId===s.id && /^https?:\/\//.test(v.url||''))
+      .sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+    return `<div class="card" style="margin-bottom:14px">
+      <div class="row between" style="margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div class="row" style="gap:10px;flex-wrap:wrap">
+          <span class="badge"><span class="b-dot" style="background:${st.color}"></span>${esc(st.label)}</span>
+          <strong style="font-size:16px">${esc(s.title)}</strong>
+          ${s.key?`<span class="muted small">${esc(s.key)}</span>`:''}
+          ${s.bpm?`<span class="muted small">${s.bpm} BPM</span>`:''}
+        </div>
+      </div>
+      ${versions.map(v=>`
+        <div class="li" style="margin-bottom:6px;padding:10px 12px">
+          <span class="badge" style="flex-shrink:0">${esc(v.label)}</span>
+          <div class="grow" style="min-width:0">
+            ${v.notes?`<div class="small">${esc(v.notes)}</div>`:''}
+            <div class="meta">${esc(user(v.createdBy)?.name||'')} · ${esc(fmtRelative(v.createdAt))}</div>
+          </div>
+          <button class="btn sm primary" data-play="${s.id}:${v.id}">▶ Écouter</button>
+        </div>
+      `).join('')}
+    </div>`;
+  }).join('')}</div>`;
+}
+
 
 function renderGroupEvents(g){
   const today = todayISO();
