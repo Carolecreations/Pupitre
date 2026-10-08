@@ -857,28 +857,48 @@ function renderLogin(){
     <div class="login">
       <div class="login-card">
         <h1>Pupitre</h1>
-        <p>Espace musicien multi-groupes. Entre ton prénom et ton code pour continuer.</p>
-        <div class="field"><input id="login-name" placeholder="Ton prénom" autocomplete="off" autocapitalize="words"></div>
-        <div class="field" style="margin-top:10px"><input id="login-pin" type="password" inputmode="numeric" placeholder="Ton code" autocomplete="off"></div>
-        <button class="btn primary" id="login-go" style="margin-top:10px">Entrer</button>
+        <p>Entre ton email et ton mot de passe.</p>
+        <div class="field"><input id="login-email" type="email" placeholder="ton@email.fr" autocomplete="email"></div>
+        <div class="field" style="margin-top:10px"><input id="login-pass" type="password" placeholder="Mot de passe" autocomplete="current-password"></div>
+        <button class="btn primary" id="login-go" style="margin-top:14px;width:100%">Se connecter</button>
+        <div style="margin-top:14px;text-align:center">
+          <a href="#" id="login-forgot" class="small">Mot de passe oublié ?</a>
+        </div>
         <div id="login-err" class="small" style="color:var(--danger);margin-top:10px"></div>
       </div>
     </div>`;
-
 }
 function bindLogin(){
-  const inp = $('#login-name'), pin = $('#login-pin'), go = $('#login-go');
-  const enter = ()=>{
-    const k = normStr(inp.value).trim();
-    const u = k && data.users.find(x=>normStr(x.name).trim()===k);
-    if(!u){ $('#login-err').textContent = 'Prénom non reconnu.'; return; }
-    if(u.pin && String(u.pin)!==pin.value.trim()){ $('#login-err').textContent = 'Code incorrect.'; return; }
-    ui.currentUserId = u.id; localStorage.setItem(ME_KEY, u.id);
-    ui.view = 'groups'; render();
+  const em = $('#login-email'), pw = $('#login-pass'), go = $('#login-go'), err = $('#login-err');
+  const enter = async () => {
+    err.textContent = '';
+    if(!fbAuth){ err.textContent = 'Firebase Auth non disponible.'; return; }
+    if(!em.value.trim() || !pw.value){ err.textContent = 'Email et mot de passe requis.'; return; }
+    try{
+      go.disabled = true; go.textContent = 'Connexion…';
+      await fbAuth.signInWithEmailAndPassword(em.value.trim(), pw.value);
+    }catch(e){
+      go.disabled = false; go.textContent = 'Se connecter';
+      const code = (e && e.code) || '';
+      if(code.includes('user-not-found') || code.includes('wrong-password') || code.includes('invalid-credential')) err.textContent = 'Email ou mot de passe incorrect.';
+      else if(code.includes('too-many-requests')) err.textContent = 'Trop de tentatives. Réessaie dans quelques minutes.';
+      else if(code.includes('invalid-email')) err.textContent = "Format d'email invalide.";
+      else err.textContent = 'Erreur : ' + ((e && e.message) || e);
+    }
   };
   go.addEventListener('click', enter);
-  inp.addEventListener('keydown', e=>{ if(e.key==='Enter') enter(); });
-  pin.addEventListener('keydown', e=>{ if(e.key==='Enter') enter(); });
+  em.addEventListener('keydown', e => { if(e.key==='Enter') enter(); });
+  pw.addEventListener('keydown', e => { if(e.key==='Enter') enter(); });
+  const fg = $('#login-forgot');
+  if(fg) fg.addEventListener('click', async e => {
+    e.preventDefault();
+    const email = prompt('Ton email :', em.value.trim());
+    if(!email) return;
+    try{
+      await fbAuth.sendPasswordResetEmail(email);
+      alert('Email envoyé. Vérifie ta boîte (et les spams).');
+    }catch(err2){ alert('Impossible : ' + ((err2 && err2.message) || err2)); }
+  });
 }
 function renderShell(content){
   const me = user(ui.currentUserId);
