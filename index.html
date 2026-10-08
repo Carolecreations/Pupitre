@@ -8,6 +8,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="pupitre-icone-192.png">
 <link rel="apple-touch-icon" href="pupitre-icone-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Pupitre">
 <title>Pupitre — espace musicien multi-groupes</title>
@@ -288,6 +289,13 @@
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+</script>
 </head>
 <body>
 <div id="splash">
