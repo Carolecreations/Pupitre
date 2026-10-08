@@ -868,6 +868,51 @@ function renderLogin(){
       </div>
     </div>`;
 }
+function renderSelectProfile(){
+  const pending = localStorage.getItem('pupitre-pending-email') || '';
+  return `
+    <div class="login">
+      <div class="login-card">
+        <h1>Qui es-tu ?</h1>
+        <p>Première connexion avec <strong>${esc(pending)}</strong>. Choisis ton profil — cette étape n'arrive qu'une fois.</p>
+        <div>
+          ${data.users.map(u=>`
+            <button class="user-choice" data-pick-profile="${u.id}">
+              <div class="avatar" style="background:${u.color}">${esc(u.initials)}</div>
+              <div class="grow">
+                <div style="font-weight:600">${esc(u.name)}</div>
+                <div class="sub">${esc(u.instruments||'')}</div>
+              </div>
+              <span class="muted">→</span>
+            </button>
+          `).join('')}
+        </div>
+        <div style="margin-top:14px;text-align:center">
+          <a href="#" id="logout-select" class="small">Annuler et se déconnecter</a>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bindSelectProfile(){
+  const pending = (localStorage.getItem('pupitre-pending-email')||'').toLowerCase();
+  $$('[data-pick-profile]').forEach(b => b.addEventListener('click', () => {
+    const u = data.users.find(x => x.id === b.dataset.pickProfile);
+    if(!u) return;
+    u.email = pending;
+    ui.currentUserId = u.id;
+    localStorage.setItem(ME_KEY, u.id);
+    localStorage.removeItem('pupitre-pending-email');
+    save();
+    render();
+  }));
+  const lo = $('#logout-select');
+  if(lo) lo.addEventListener('click', async e => {
+    e.preventDefault();
+    localStorage.removeItem('pupitre-pending-email');
+    if(fbAuth) await fbAuth.signOut();
+  });
+}
 function bindLogin(){
   const em = $('#login-email'), pw = $('#login-pass'), go = $('#login-go'), err = $('#login-err');
   const enter = async () => {
