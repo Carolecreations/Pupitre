@@ -291,6 +291,8 @@
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => {
@@ -366,6 +368,24 @@ const AVAIL = [
 ];
 
 const KEY = 'pupitre-v2';
+/* ============ FIREBASE AUTH ============ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDV35LT0CHsL2lVE3rTNaP82cnG3CYCD28",
+  authDomain: "pupitre66.firebaseapp.com",
+  databaseURL: "https://pupitre66-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "pupitre66",
+  storageBucket: "pupitre66.firebasestorage.app",
+  messagingSenderId: "264869978021",
+  appId: "1:264869978021:web:5ee5007d4ed139da90524c"
+};
+let fbAuth = null;
+let fbUser = undefined; // undefined = pas encore déterminé, null = déconnecté
+try{
+  if(typeof firebase !== 'undefined' && firebase.initializeApp){
+    firebase.initializeApp(FIREBASE_CONFIG);
+    fbAuth = firebase.auth();
+  }
+}catch(e){ console.warn('Firebase init :', e); }
 const APP_VERSION = '1.0.0';
 const SUPABASE_URL = 'https://ggbdsdupicfmpogmendp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_wW9OsvjI3RW63jMLpJtOvw_UzYk6Ift';
@@ -806,7 +826,16 @@ function render(){
   root.innerHTML='<div class="login"><div class="login-card"><h1>Pupitre</h1><p>Synchronisation…</p></div></div>';
   return;
 }
-       if(!ui.currentUserId){ root.innerHTML = renderLogin(); bindLogin(); return; }
+      if(fbAuth && fbUser === undefined){
+  root.innerHTML = '<div class="login"><div class="login-card"><h1>Pupitre</h1><p>Connexion…</p></div></div>';
+  return;
+}
+if(localStorage.getItem('pupitre-pending-email')){
+  root.innerHTML = renderSelectProfile();
+  bindSelectProfile();
+  return;
+}
+if(!ui.currentUserId){ root.innerHTML = renderLogin(); bindLogin(); return; }
   const content = (()=>{
     switch(ui.view){
       case 'calendar': return renderCalendar();
@@ -946,9 +975,13 @@ function bindShell(){
       r.readAsText(f);
     });
   }
-  const lo = $('[data-logout]'); if(lo) lo.addEventListener('click', ()=>{closeMiniPlayer();
-    ui.currentUserId = null; localStorage.removeItem(ME_KEY); render();
-  });
+ const lo = $('[data-logout]'); if(lo) lo.addEventListener('click', async ()=>{
+  closeMiniPlayer();
+  if(fbAuth){ try{ await fbAuth.signOut(); }catch(e){} }
+  ui.currentUserId = null;
+  localStorage.removeItem(ME_KEY);
+  render();
+});
   const tg = $('[data-toggle-sidebar]'); if(tg) tg.addEventListener('click', ()=>{
     ui.sidebarOpen = !ui.sidebarOpen; render();
   });
@@ -3682,6 +3715,37 @@ if(dedupeUsers()) save();
 if(sync){
   syncTick(); setInterval(syncTick,5000);
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden) syncTick(); });
+}
+/* ============ AUTH STATE ============ */
+function matchEmailToUser(email){
+  if(!email) return null;
+  const k = email.toLowerCase();
+  return data.users.find(u => (u.email||'').toLowerCase() === k) || null;
+}
+
+if(fbAuth){
+  fbAuth.onAuthStateChanged(u => {
+    fbUser = u;
+    if(!u){
+      ui.currentUserId = null;
+      localStorage.removeItem(ME_KEY);
+      localStorage.removeItem('pupitre-pending-email');
+    } else {
+      const email = (u.email||'').toLowerCase();
+      const match = matchEmailToUser(email);
+      if(match){
+        ui.currentUserId = match.id;
+        localStorage.setItem(ME_KEY, match.id);
+        localStorage.removeItem('pupitre-pending-email');
+      } else {
+        ui.currentUserId = null;
+        localStorage.removeItem(ME_KEY);
+        localStorage.setItem('pupitre-pending-email', email);
+      }
+    }
+    render();
+    if(sync && fbUser) syncTick();
+  });
 }
 render();
 /* ============ VÉRIFICATION DE VERSION ============ */
