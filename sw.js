@@ -1,4 +1,4 @@
-const CACHE = 'pupitre-v3';
+const CACHE = 'pupitre-v4';
 const ASSETS = [
   './',
   './manifest.json',
