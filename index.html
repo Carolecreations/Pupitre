@@ -9,6 +9,8 @@
 <link rel="apple-touch-icon" href="pupitre-icone-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Pupitre">
 <title>Pupitre — espace musicien multi-groupes</title>
@@ -296,6 +298,7 @@ if('serviceWorker' in navigator){
   });
 }
 </script>
+
 </head>
 <body>
 <div id="splash">
@@ -363,6 +366,7 @@ const AVAIL = [
 ];
 
 const KEY = 'pupitre-v2';
+const APP_VERSION = '1.0.0';
 const SUPABASE_URL = 'https://ggbdsdupicfmpogmendp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_wW9OsvjI3RW63jMLpJtOvw_UzYk6Ift';
 
@@ -3657,6 +3661,35 @@ if(sync){
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden) syncTick(); });
 }
 render();
+/* ============ VÉRIFICATION DE VERSION ============ */
+async function checkVersion(){
+  try{
+    const r = await fetch('./version.json?_=' + Date.now(), {cache:'no-store'});
+    if(!r.ok) return;
+    const j = await r.json();
+    if(j.version && j.version !== APP_VERSION){
+      showUpdateBanner();
+    }
+  }catch(e){}
+}
+
+function showUpdateBanner(){
+  if(document.getElementById('update-banner')) return;
+  const b = document.createElement('div');
+  b.id = 'update-banner';
+  b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:80px;z-index:200;background:#6366f1;color:#fff;padding:12px 18px;border-radius:12px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 24px rgba(99,102,241,.45);font-size:14px;font-weight:500;max-width:90vw';
+  b.innerHTML = '🚀 Nouvelle version disponible <button style="background:#fff;color:#6366f1;border:none;padding:6px 12px;border-radius:8px;font-weight:600;cursor:pointer">Recharger</button>';
+  b.querySelector('button').onclick = () => {
+    if(navigator.serviceWorker && navigator.serviceWorker.controller){
+      navigator.serviceWorker.controller.postMessage({type:'skipWaiting'});
+    }
+    location.reload(true);
+  };
+  document.body.appendChild(b);
+}
+
+setInterval(checkVersion, 30000);
+setTimeout(checkVersion, 3000);
 
 /* ============ SON DU SPLASH (synthé électro) ============ */
 function splashPlaySound(ac){
