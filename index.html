@@ -384,7 +384,9 @@ try{
   if(typeof firebase !== 'undefined' && firebase.initializeApp){
     firebase.initializeApp(FIREBASE_CONFIG);
     fbAuth = firebase.auth();
-    fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+     fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+      .then(() => console.log('Persistance Firebase : LOCAL'))
+      .catch(e => console.warn('setPersistence :', e));
   }
 }catch(e){ console.warn('Firebase init :', e); }
 const APP_VERSION = '1.0.0';
