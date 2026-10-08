@@ -3792,6 +3792,10 @@ function matchEmailToUser(email){
 }
 
 if(fbAuth){
+  // Attendre que setPersistence soit terminé avant d'écouter l'état
+  Promise.resolve(fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL))
+    .catch(()=>{})
+    .then(() => {
   fbAuth.onAuthStateChanged(u => {
     fbUser = u;
     if(!u){
@@ -3811,9 +3815,10 @@ if(fbAuth){
         localStorage.setItem('pupitre-pending-email', email);
       }
     }
-    render();
+       render();
     if(sync && fbUser) syncTick();
   });
+    });
 }
 render();
 /* ============ VÉRIFICATION DE VERSION ============ */
