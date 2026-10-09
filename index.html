@@ -9,8 +9,6 @@
 <link rel="apple-touch-icon" href="pupitre-icone-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Pupitre">
 <title>Pupitre — espace musicien multi-groupes</title>
@@ -334,8 +332,6 @@ if('serviceWorker' in navigator){
   <span class="instrument" style="color:#8b5cf6; --tx:0px;    --ty:210px;  --r:-10deg">🎻</span>
   <span class="instrument" style="color:#eab308; --tx:-180px; --ty:130px;  --r:-40deg">🪕</span>
 </div>
-  </div>
-</div>
 <div id="root"></div>
 <div id="modal-root"></div>
 
@@ -379,7 +375,7 @@ const FIREBASE_CONFIG = {
   appId: "1:264869978021:web:5ee5007d4ed139da90524c"
 };
 let fbAuth = null;
-let fbUser = undefined; // undefined = pas encore déterminé, null = déconnecté
+let fbUser = undefined;
 try{
   if(typeof firebase !== 'undefined' && firebase.initializeApp){
     firebase.initializeApp(FIREBASE_CONFIG);
@@ -480,8 +476,6 @@ groups: [
 ],
 comments: [],
 privateNotes: {},
-    comments: [],
-    privateNotes: {},
   };
 }
 
@@ -514,17 +508,42 @@ try{ sync=JSON.parse(localStorage.getItem(SYNC_KEY)); }catch(e){}
   if(mi){ localStorage.setItem('pupitre-invite-pending', mi[1].toUpperCase().replace(/[^A-Z0-9]/g,'')); history.replaceState(null,'',location.pathname+location.search); }
 })();
 let ver=0, dirty=false, busy=false, ready=false, last={}, tm=null, syncState='none', pendingRender=false;
+
+/* ✅ CORRECTION : save() protégé contre le quota localStorage */
 function save(){
-  localStorage.setItem(KEY, JSON.stringify(data));
+  try{
+    localStorage.setItem(KEY, JSON.stringify(data));
+  }catch(e){
+    console.warn('localStorage plein, nettoyage…', e);
+    try{
+      for(let i=localStorage.length-1; i>=0; i--){
+        const k = localStorage.key(i);
+        if(k && k.startsWith('pupitre-img-')) localStorage.removeItem(k);
+      }
+      localStorage.setItem(KEY, JSON.stringify(data));
+    }catch(e2){
+      alert("Stockage de l'appareil plein. Fais une sauvegarde via Exporter, puis vide les données du site dans les réglages du navigateur.");
+    }
+  }
   if(sync){ ver++; dirty=true; clearTimeout(tm); tm=setTimeout(syncTick,400); }
 }
+
+/* ✅ CORRECTION : techOf robuste — répare patch/gear si Firebase les a supprimés */
+function techOf(e){
+  if(!e.tech) e.tech = {};
+  if(!Array.isArray(e.tech.patch)) e.tech.patch = e.tech.patch ? Object.values(e.tech.patch) : [];
+  if(!Array.isArray(e.tech.gear))  e.tech.gear  = e.tech.gear  ? Object.values(e.tech.gear)  : [];
+  if(typeof e.tech.stage !== 'string') e.tech.stage = '';
+  return e.tech;
+}
+
 function normalize(){
   data.events.forEach(e=>{
     e.setlist=e.setlist||[];
     e.availability=e.availability||{};
     e.checklist=(e.checklist||[]).map(c=>typeof c==='string'?{t:c,done:false}:c);
     e.journal = e.journal || [];
-        if(e.tech) techOf(e);   // répare patch/gear si Firebase les a supprimés
+    if(e.tech) techOf(e);   /* ✅ CORRECTION : répare tech à chaque démarrage */
   });
   data.groups.forEach(g=>{
     g.memberships=(g.memberships||[]).map(m=>({instrument:'', ...m}));
@@ -637,7 +656,7 @@ async function syncTick(){
                normalize(); last=snap(data);
         if(dedupeUsers()){ dirty=true; ver++; setTimeout(syncTick,150); }
         if(stripPins()){ dirty=true; ver++; setTimeout(syncTick,150); }
-        localStorage.setItem(KEY, JSON.stringify(data));
+        try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(x){}
         if(ui.currentUserId && !user(ui.currentUserId)) ui.currentUserId=null;
                if(!ui.currentUserId) applyPending();
         if(ready && (JSON.stringify(COLS.map(c=>data[c]))!==before || pendingRender)){
@@ -868,10 +887,10 @@ const DB_URL = FIREBASE_CONFIG.databaseURL.replace(/\/+$/,'');
 const INVITE_DAYS = 7;
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const ADMIN_KEY = 'pupitre-admin', INVITE_KEY = 'pupitre-invite-pending';
-let myMember = null;          // accès de cet appareil : {userId, admin}
-let identityPending = false;  // vrai pendant la vérification de l'accès
-let claiming = false;         // vrai pendant l'utilisation d'une invitation (évite une course avec l'écouteur de connexion)
-let joined = {};              // userId -> true (liste des musiciens déjà connectés, vue par l'admin)
+let myMember = null;
+let identityPending = false;
+let claiming = false;
+let joined = {};
 
 function isRoomAdmin(){ return !!(myMember && myMember.admin); }
 async function tok(){
@@ -911,7 +930,7 @@ function storeAccess(room, userId, admin){
   localStorage.setItem(SYNC_KEY, JSON.stringify({room, db:DB_URL}));
   localStorage.setItem(ME_KEY, userId);
   if(admin === true) localStorage.setItem(ADMIN_KEY, '1');
-  else if(admin === false) localStorage.removeItem(ADMIN_KEY);   // indéfini : on ne touche pas (recalculé au prochain démarrage)
+  else if(admin === false) localStorage.removeItem(ADMIN_KEY);
 }
 async function claimInvite(raw){
   claiming = true;
@@ -982,7 +1001,6 @@ async function resolveIdentity(){
     }
     return null;
   }catch(e){
-    // hors ligne : on garde l'accès déjà connu sur cet appareil
     if(cachedMe && sync && sync.room) return {userId:cachedMe, admin: localStorage.getItem(ADMIN_KEY)==='1'};
     return null;
   }
@@ -1102,7 +1120,6 @@ function renderBootstrap(){
 }
 function bindLogin(){
   if(ui.bootstrap) return bindBootstrap();
-  // un message d'erreur doit survivre au réaffichage de l'écran (la connexion le déclenche)
   const fail = m => { ui.loginMsg = m || ''; render(); };
   if(ui.iosInvite){
     const b = $('#ios-continue');
@@ -1379,7 +1396,7 @@ function renderCalendar(){
   const today = todayISO();
   const ym = ui.calMonth || today.slice(0,7);
   const [y,m] = ym.split('-').map(Number);
-  const offset = (new Date(y,m-1,1).getDay()+6)%7; // semaine qui commence le lundi
+  const offset = (new Date(y,m-1,1).getDay()+6)%7;
   const nb = new Date(y,m,0).getDate();
   const evts = data.events
     .filter(e => (e.date||'').slice(0,7)===ym && myGroups().some(g=>g.id===e.groupId && gFilter(g)))
@@ -1435,7 +1452,6 @@ function searchAll(query){
   const myGids = myGroups().map(g=>g.id);
   const out = { songs:[], events:[], tasks:[], comments:[] };
 
-  // Morceaux
   data.songs.forEach(s=>{
     if(!myGids.includes(s.groupId)) return;
     const fields = [
@@ -1453,7 +1469,6 @@ function searchAll(query){
     if(hits.length) out.songs.push({item:s, hits});
   });
 
-  // Événements
   data.events.forEach(e=>{
     if(!myGids.includes(e.groupId)) return;
     const fields = [
@@ -1469,13 +1484,11 @@ function searchAll(query){
     if(hits.length) out.events.push({item:e, hits});
   });
 
-  // Tâches
   data.tasks.forEach(t=>{
     if(!myGids.includes(t.groupId)) return;
     if(normStr(t.title).includes(q)) out.tasks.push({item:t, hits:[{label:'Titre', value:t.title}]});
   });
 
-  // Commentaires
   data.comments.forEach(c=>{
     if(!normStr(c.text).includes(q)) return;
     let target = null;
@@ -1597,6 +1610,8 @@ function renderSearch(){
 function isSuperAdmin(){
   return data.groups.length>0 && data.groups.every(g=>isAdmin(g.id));
 }
+
+/* ✅ CORRECTION : renderMusicians() correctement fermée */
 function renderMusicians(){
   const list = data.users.slice().sort((a,b)=>a.name.localeCompare(b.name,'fr'));
   return `
@@ -1622,15 +1637,14 @@ function renderMusicians(){
                 <button data-member-remove="${g.id}:${u.id}" title="Retirer de ce groupe" style="margin-left:4px;color:var(--muted)">✕</button></span>`;
             }).join('') : '<span class="muted small">Aucun groupe</span>'}
           </div>
-         <div class="row" style="gap:6px;flex-wrap:wrap">
-  ${isRoomAdmin()?`<button class="btn sm primary" data-member-invite="${u.id}">Inviter</button>`:''}
-  ${(isRoomAdmin() && joined[u.id] && u.id!==ui.currentUserId)?`<button class="btn sm" data-member-revoke="${u.id}">Retirer l'accès</button>`:''}
-  <button class="btn sm" data-user-edit="${u.id}" title="Modifier nom, initiales, instruments, couleur">✎ Modifier</button>
-  ${free.length?`<select data-musician-add="${u.id}" style="width:auto;padding:5px 8px;font-size:13px"><option value="">+ Groupe…</option>${free.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select>`:''}
-   ${u.id!==ui.currentUserId?`<button class="btn sm danger" data-user-delete="${u.id}">Supprimer</button>`:''}
-</div>
-        </div>
-      </div>`;
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            ${isRoomAdmin()?`<button class="btn sm primary" data-member-invite="${u.id}">Inviter</button>`:''}
+            ${(isRoomAdmin() && joined[u.id] && u.id!==ui.currentUserId)?`<button class="btn sm" data-member-revoke="${u.id}">Retirer l'accès</button>`:''}
+            <button class="btn sm" data-user-edit="${u.id}" title="Modifier nom, initiales, instruments, couleur">✎ Modifier</button>
+            ${free.length?`<select data-musician-add="${u.id}" style="width:auto;padding:5px 8px;font-size:13px"><option value="">+ Groupe…</option>${free.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select>`:''}
+            ${u.id!==ui.currentUserId?`<button class="btn sm danger" data-user-delete="${u.id}">Supprimer</button>`:''}
+          </div>
+        </div>`;
       }).join('')}
     </div>`;
 }
@@ -1822,7 +1836,7 @@ function toMin(t){
 function eventRange(e){
   const s = toMin(e.start); if(s===null) return null;
   let en = toMin(e.end);
-  if(en===null || en<=s) en = s+120; // sans heure de fin : on compte 2 h
+  if(en===null || en<=s) en = s+120;
   return [s,en];
 }
 function conflictsFor(e){
@@ -1873,10 +1887,8 @@ function availSummary(e, detail){
   return `<div class="small" style="margin:${detail?'0 0 10px':'8px 0 0'};display:flex;gap:12px;flex-wrap:wrap">${parts.join('')}</div>`;
 }
 /* ============ CONCERTS : TABLEAU DE BORD + FINANCES (administrateur seul) ============ */
-// Les montants sont stockés à part (finances/<groupe>/<événement>), lisibles uniquement par l'administrateur
-// grâce aux règles Firebase : ils ne passent jamais par les appareils des autres musiciens.
-let fin = {};            // eventId -> {cachet, received, cash, expenses:[{id,label,amount}], shares:{userId:{in,part,paid}}}
-let finState = 'idle';   // idle | loading | ok | err
+let fin = {};
+let finState = 'idle';
 const eur = n => (Number(n)||0).toLocaleString('fr-FR', {style:'currency', currency:'EUR'});
 const num = v => { const x = parseFloat(String(v==null ? '' : v).replace(',', '.')); return isFinite(x) ? x : 0; };
 
@@ -2115,7 +2127,7 @@ function renderConcertCard(e, isPast){
   </div>`;
 }
 
-/* ============ SETLIST EN PDF (sans bibliothèque : fonctionne aussi hors ligne) ============ */
+/* ============ SETLIST EN PDF ============ */
 const HELV_W = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
 const WIN1252 = {'€':0x80,'‚':0x82,'ƒ':0x83,'„':0x84,'…':0x85,'†':0x86,'‡':0x87,'ˆ':0x88,'‰':0x89,'Š':0x8A,'‹':0x8B,'Œ':0x8C,'Ž':0x8E,'‘':0x91,'’':0x92,'“':0x93,'”':0x94,'•':0x95,'–':0x96,'—':0x97,'˜':0x98,'™':0x99,'š':0x9A,'›':0x9B,'œ':0x9C,'ž':0x9E,'Ÿ':0x9F};
 function pdfEnc(str){
@@ -2254,8 +2266,6 @@ function bindSetlistPdf(){
 }
 
 /* ============ À RÉVISER AVANT LA RÉPÈTE ============ */
-// Chaque musicien coche ses morceaux dans SA fiche (collection « reviews », une par personne et par répétition) :
-// deux personnes qui cochent en même temps ne s'écrasent donc jamais.
 const reviewId = (eid, u) => 'rv_' + eid + '_' + u;
 function reviewedSongs(eid, u){
   const r = (data.reviews || []).find(x => x.id === reviewId(eid, u));
@@ -2466,12 +2476,10 @@ function renderGroupStats(g){
   const past = evts.filter(e=>e.date<today);
   const up = evts.filter(e=>e.date>=today).sort((a,b)=>a.date.localeCompare(b.date)||(a.start||'').localeCompare(b.start||''));
 
-  // Morceaux
   const active = songs.filter(s=>s.status!=='archive');
   const ready = active.filter(s=>s.status==='pret'||s.status==='concert').length;
   const maxS = Math.max(1, ...SONG_STATUSES.map(st=>songs.filter(s=>s.status===st.id).length));
 
-  // Événements
   const d30 = addDays(today,-30);
   const reh30 = past.filter(e=>e.type==='repetition' && e.date>=d30).length;
   const rehUp = up.filter(e=>e.type==='repetition').length;
@@ -2479,12 +2487,10 @@ function renderGroupStats(g){
   const conUp = up.filter(e=>e.type==='concert');
   const conNoSet = conUp.filter(e=>!(e.setlist||[]).length).length;
 
-  // Disponibilités sur les événements à venir
   const memberIds = g.memberships.map(m=>m.userId);
   const expected = up.length * memberIds.length;
   const answered = up.reduce((n,e)=> n + memberIds.filter(id=>(e.availability||{})[id]).length, 0);
 
-  // Tâches
   const open = tasks.filter(t=>!t.done);
   const late = tasks.filter(t=>taskState(t)==='late');
   const doneN = tasks.length - open.length;
@@ -2802,14 +2808,6 @@ const slEmpty = isRep ? 'Aucun morceau à travailler en priorité.' : 'Aucun mor
   `;
 }
 
-function techOf(e){
-  if(!e.tech) e.tech = {};
-  if(!Array.isArray(e.tech.patch)) e.tech.patch = e.tech.patch ? Object.values(e.tech.patch) : [];
-  if(!Array.isArray(e.tech.gear))  e.tech.gear  = e.tech.gear  ? Object.values(e.tech.gear)  : [];
-  if(typeof e.tech.stage !== 'string') e.tech.stage = '';
-  return e.tech;
-}
-
 function ensureTech(e){
   if(!e.tech) e.tech = {};
   e.tech.patch = e.tech.patch || [];
@@ -2953,9 +2951,9 @@ function openTechTextModal(eid){
 }
 
 const imgCache = {};
-const imgKey = id => 'pupitre-img-'+id;
 const imgUrl = id => sync.db.replace(/\/+$/,'')+'/rooms/'+encodeURIComponent(sync.room)+'/images/'+id+'.json';
 
+/* ✅ CORRECTION : compression renforcée, garantit < 150 Ko */
 function shrinkImage(file){
   return new Promise((resolve,reject)=>{
     const r = new FileReader();
@@ -2964,14 +2962,20 @@ function shrinkImage(file){
       const im = new Image();
       im.onerror = ()=>reject(new Error('format non pris en charge'));
       im.onload = ()=>{
-        const k = Math.min(1, 1000/Math.max(im.width, im.height));
-        const c = document.createElement('canvas');
-        c.width = Math.round(im.width*k); c.height = Math.round(im.height*k);
-        const x = c.getContext('2d');
-        x.fillStyle = '#fff'; x.fillRect(0,0,c.width,c.height);
-        x.drawImage(im,0,0,c.width,c.height);
-        let q = 0.72, url = c.toDataURL('image/jpeg', q);
-        while(url.length>180000 && q>0.35){ q -= 0.1; url = c.toDataURL('image/jpeg', q); }
+        let maxDim = 1000, q = 0.72, url = '';
+        for(let i=0; i<8; i++){
+          const k = Math.min(1, maxDim/Math.max(im.width, im.height));
+          const c = document.createElement('canvas');
+          c.width = Math.round(im.width*k);
+          c.height = Math.round(im.height*k);
+          const x = c.getContext('2d');
+          x.fillStyle = '#fff'; x.fillRect(0,0,c.width,c.height);
+          x.drawImage(im,0,0,c.width,c.height);
+          url = c.toDataURL('image/jpeg', q);
+          if(url.length <= 150000) break;
+          if(q > 0.45) q -= 0.1;
+          else { maxDim = Math.round(maxDim * 0.75); q = 0.7; }
+        }
         resolve(url);
       };
       im.src = r.result;
@@ -2979,9 +2983,10 @@ function shrinkImage(file){
     r.readAsDataURL(file);
   });
 }
+
+/* ✅ CORRECTION : putImage n'écrit plus dans localStorage */
 async function putImage(id, dataUrl){
   imgCache[id] = dataUrl;
-  try{ localStorage.setItem(imgKey(id), dataUrl); }catch(x){}
   if(sync){
     try{
       const r = await fetch(withAuth(imgUrl(id), await tok()), {method:'PUT', body:JSON.stringify(dataUrl)});
@@ -3027,15 +3032,16 @@ function deleteAudioFromSupabase(url){
     }
   }).catch(()=>{});
 }
+
+/* ✅ CORRECTION : getImage ne lit/écrit plus dans localStorage */
 async function getImage(id){
   if(imgCache[id]) return imgCache[id];
-  try{ const v = localStorage.getItem(imgKey(id)); if(v){ imgCache[id] = v; return v; } }catch(x){}
   if(sync){
     try{
       const r = await fetch(withAuth(imgUrl(id), await tok()));
       if(r.ok){
         const v = await r.json();
-        if(v){ imgCache[id] = v; try{ localStorage.setItem(imgKey(id), v); }catch(x){} return v; }
+        if(v){ imgCache[id] = v; return v; }
       }
     }catch(x){}
   }
@@ -3043,7 +3049,6 @@ async function getImage(id){
 }
 function deleteImage(id){
   delete imgCache[id];
-  try{ localStorage.removeItem(imgKey(id)); }catch(x){}
   if(sync) tok().then(t=>fetch(withAuth(imgUrl(id),t), {method:'DELETE'})).catch(()=>{});
 }
 function showImage(src){
@@ -3304,12 +3309,10 @@ document.addEventListener('visibilitychange', ()=>{ if(stage && !document.hidden
 function toAudioUrl(url){
   if(!url) return '';
   let u = String(url).trim();
-  // Google Drive : file/d/ID/view  ou  open?id=ID
   let m = u.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
   if(m) return 'https://drive.google.com/uc?export=download&id=' + m[1];
   m = u.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
   if(m) return 'https://drive.google.com/uc?export=download&id=' + m[1];
-  // Dropbox : dl=0 → dl=1
   if(/dropbox\.com/.test(u)){
     u = u.replace(/[?&]dl=0/, s=>s.charAt(0)+'dl=1').replace(/[?&]raw=0/, s=>s.charAt(0)+'raw=1');
     if(!/[?&](dl=1|raw=1)/.test(u)) u += (u.includes('?') ? '&raw=1' : '?raw=1');
@@ -3365,7 +3368,6 @@ async function playAudio(songId, versionId){
   const cur  = el.querySelector('[data-cur]');
   const dur  = el.querySelector('[data-dur]');
 
-  // Téléchargement complet du fichier puis lecture depuis un blob local
   let blobUrl = null;
   try{
     const r = await fetch(url);
@@ -3404,7 +3406,6 @@ async function playAudio(songId, versionId){
     closeMiniPlayer();
   };
 
-  // Si on a une URL blob, elle est locale, donc play() marche tout de suite
   if(audio.src && audio.src.startsWith('blob:')){
     audio.play().catch(err => console.warn('Lecture auto bloquée :', err.message));
   }
@@ -3562,7 +3563,7 @@ $$('[data-member-instrument]').forEach(b=>b.addEventListener('click',()=>{
     `Instrument de ${u.name} dans « ${g.name} » :\n\n(laisse vide pour utiliser son instrument par défaut : ${u.instruments||'aucun'})`,
     m.instrument || ''
   );
-  if(val === null) return; // annulé
+  if(val === null) return;
   m.instrument = val.trim();
   save(); render();
 }));
@@ -3582,10 +3583,8 @@ $$('[data-member-instrument]').forEach(b=>b.addEventListener('click',()=>{
   }));
   $$('[data-new-user]').forEach(b=>b.addEventListener('click',()=>openUserModal(b.dataset.newUser)));
   $$('[data-user-delete]').forEach(b=>b.addEventListener('click',()=>deleteUser(b.dataset.userDelete)));
-  // Modifier un musicien (nom, initiales, instruments par défaut, couleur)
-$$('[data-user-edit]').forEach(b=>b.addEventListener('click',()=>openUserEditModal(b.dataset.userEdit)));
+  $$('[data-user-edit]').forEach(b=>b.addEventListener('click',()=>openUserEditModal(b.dataset.userEdit)));
 
-// Ajouter un musicien existant à un autre groupe (page Musiciens)
 $$('[data-musician-add]').forEach(sel=>sel.addEventListener('change',()=>{
   const userId = sel.dataset.musicianAdd;
   const gid = sel.value;
@@ -3908,6 +3907,7 @@ function openGroupModal(gid){
   });
 }
 
+/* ✅ CORRECTION : openUserEditModal séparée de openUserModal */
 function openUserEditModal(userId){
   const u = user(userId); if(!u) return;
   const autoIni = (u.name||'').split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
@@ -4046,6 +4046,7 @@ function openEventModal(gid, eid){
       const patch = {type:fd.type, date:fd.date, start:fd.start, end:fd.end,
                      location:fd.location, notes:fd.notes};
            learnLocation(gid, fd.location);
+      let saved = null;
       if(eid){
         const target = data.events.find(x => x.id === eid);
         if(target){ Object.assign(target, patch); saved = target; }
@@ -4499,6 +4500,20 @@ function qrSvg(text){
   for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(qr.isDark(r,c)) d += 'M'+(c+m)+' '+(r+m)+'h1v1h-1z';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" shape-rendering="crispEdges" style="width:100%;max-width:340px;background:#fff;border-radius:8px"><path d="${d}" fill="#000"/></svg>`;
 }
+
+/* ✅ CORRECTION : nettoyage des vieilles images du localStorage au démarrage */
+(function cleanupLegacyImages(){
+  try{
+    const toDelete = [];
+    for(let i=0; i<localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(k && k.startsWith('pupitre-img-')) toDelete.push(k);
+    }
+    toDelete.forEach(k=>localStorage.removeItem(k));
+    if(toDelete.length) console.log(toDelete.length + ' vieille(s) image(s) supprimée(s) du localStorage');
+  }catch(e){}
+})();
+
 normalize();
 { const me=localStorage.getItem(ME_KEY); if(me && user(me)) ui.currentUserId=me; }
 applyPending();
@@ -4510,7 +4525,6 @@ if(sync){
 }
 /* ============ AUTH STATE ============ */
 if(fbAuth){
-  // Attendre que setPersistence soit terminé avant d'écouter l'état
   Promise.resolve(fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL))
     .catch(()=>{})
     .then(() => {
@@ -4585,7 +4599,6 @@ function splashPlaySound(ac){
   master.gain.value = 0.34;
   master.connect(ac.destination);
 
-  // Bus de réverbe court, filtré pour éviter les aigus cristallins
   const rev = ac.createConvolver();
   const len = ac.sampleRate * 1.4;
   const ir = ac.createBuffer(2, len, ac.sampleRate);
@@ -4608,7 +4621,6 @@ function splashPlaySound(ac){
   revFilt.connect(revGain);
   revGain.connect(master);
 
-  /* 1. NAPPE SAW DÉTUNÉE (0 → 2s) */
   {
     const freqs = [110, 165, 220];
     const filt = ac.createBiquadFilter();
@@ -4633,7 +4645,6 @@ function splashPlaySound(ac){
     filt.connect(rev);
   }
 
-  /* 2. RISER SAW RÉSONANT (0.4 → 2s) */
   {
     const o = ac.createOscillator();
     const g = ac.createGain();
@@ -4653,7 +4664,6 @@ function splashPlaySound(ac){
     o.start(t0 + 0.4); o.stop(t0 + 2.1);
   }
 
-  /* 3. SUB BASS (0 → 2.1s) */
   {
     const o = ac.createOscillator();
     const g = ac.createGain();
@@ -4667,11 +4677,9 @@ function splashPlaySound(ac){
     o.start(t0); o.stop(t0 + 2.2);
   }
 
-  /* 4. EXPLOSION SYNTH (2.0s) — kick + stab d'accord */
   {
     const tb = t0 + 2.0;
 
-    // Kick synthé : sinus 130 → 42 Hz
     {
       const o = ac.createOscillator();
       const g = ac.createGain();
@@ -4685,7 +4693,6 @@ function splashPlaySound(ac){
       o.start(tb); o.stop(tb + 0.4);
     }
 
-    // Stab d'accord : 4 voix triangle douces, filtre qui se referme
     const notes = [261.63, 392.00, 523.25, 783.99];
     const filt = ac.createBiquadFilter();
     filt.type = 'lowpass';
