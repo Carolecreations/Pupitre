@@ -524,6 +524,7 @@ function normalize(){
     e.availability=e.availability||{};
     e.checklist=(e.checklist||[]).map(c=>typeof c==='string'?{t:c,done:false}:c);
     e.journal = e.journal || [];
+        if(e.tech) techOf(e);   // répare patch/gear si Firebase les a supprimés
   });
   data.groups.forEach(g=>{
     g.memberships=(g.memberships||[]).map(m=>({instrument:'', ...m}));
@@ -2801,7 +2802,14 @@ const slEmpty = isRep ? 'Aucun morceau à travailler en priorité.' : 'Aucun mor
   `;
 }
 
-function techOf(e){ return e.tech || {patch:[],stage:'',gear:[]}; }
+function techOf(e){
+  if(!e.tech) e.tech = {};
+  if(!Array.isArray(e.tech.patch)) e.tech.patch = e.tech.patch ? Object.values(e.tech.patch) : [];
+  if(!Array.isArray(e.tech.gear))  e.tech.gear  = e.tech.gear  ? Object.values(e.tech.gear)  : [];
+  if(typeof e.tech.stage !== 'string') e.tech.stage = '';
+  return e.tech;
+}
+
 function ensureTech(e){
   if(!e.tech) e.tech = {};
   e.tech.patch = e.tech.patch || [];
