@@ -863,7 +863,7 @@ function render(){
 
 /* ============ ACCÈS : INVITATION (QR / CODE) + RECONNEXION GOOGLE ============ */
 const DB_URL = FIREBASE_CONFIG.databaseURL.replace(/\/+$/,'');
-const INVITE_DAYS = 7;
+const INVITE_DAYS = 365;
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const ADMIN_KEY = 'pupitre-admin', INVITE_KEY = 'pupitre-invite-pending';
 let myMember = null;          // accès de cet appareil : {userId, admin}
