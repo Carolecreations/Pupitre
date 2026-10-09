@@ -31,7 +31,6 @@
         .step[id]{scroll-margin-top:24px}
 
   /* HERO */
-   
   .hero{
     padding:60px 22px 68px;text-align:center;
     background:radial-gradient(ellipse at top,rgba(99,102,241,.22),transparent 60%);
@@ -54,7 +53,7 @@
     font-size:18px;color:var(--muted);max-width:580px;margin:12px auto 0;
   }
   .hero .tags{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:28px}
-    .tag{
+  .tag{
     display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:22px;
     background:var(--panel2);border:1px solid var(--border);
     font-size:13.5px;color:var(--text);font-weight:500;
@@ -69,13 +68,12 @@
     text-decoration:none;
   }
   .tag:active{transform:translateY(0)}
-    @media(max-width:480px){
+  @media(max-width:480px){
     .hero h1{font-size:38px}
     .hero .logo{width:80px;height:80px;font-size:40px;margin-bottom:20px}
     .hero p{font-size:16px}
     .tag{font-size:12.5px;padding:7px 13px}
   }
-  
   /* CARDS */
   .card{
     background:var(--panel);border:1px solid var(--border);border-radius:var(--r);
@@ -173,8 +171,6 @@
 </head>
 <body>
 
-  <body>
-
 <div class="hero">
   <div class="logo">🎼</div>
   <h1>Pupitre</h1>
@@ -193,35 +189,35 @@
   <!-- SOMMAIRE -->
   <div class="toc">
     <h3>Sommaire</h3>
-   <ol>
-  <li><a href="#cest-quoi">C'est quoi Pupitre ?</a></li>
-  <li><a href="#connexion">Se connecter</a></li>
-  <li><a href="#installation">Installer sur iPad/téléphone</a></li>
-  <li><a href="#espaces">Les 4 espaces de l'appli</a></li>
-  <li><a href="#musiciens">Gérer les musiciens</a></li>
-  <li><a href="#morceaux">Les morceaux</a></li>
-  <li><a href="#son">Les maquettes audio (vue Son)</a></li>
-  <li><a href="#evenements">Les événements</a></li>
-  <li><a href="#concerts">Le tableau de bord des concerts</a></li>
-  <li><a href="#taches">Les tâches</a></li>
-  <li><a href="#journal">Le journal de répète</a></li>
-  <li><a href="#scene">Le mode scène</a></li>
-  <li><a href="#fiche">La fiche technique</a></li>
-  <li><a href="#recherche">La recherche</a></li>
-  <li><a href="#astuces">Astuces</a></li>
-  <li><a href="#faq">Questions fréquentes</a></li>
-</ol>
+    <ol>
+      <li><a href="#cest-quoi">C'est quoi Pupitre ?</a></li>
+      <li><a href="#premiers-pas">Premiers pas</a></li>
+      <li><a href="#espaces">Les 5 espaces de l'appli</a></li>
+      <li><a href="#musiciens">Gérer les musiciens</a></li>
+      <li><a href="#morceaux">Les morceaux</a></li>
+      <li><a href="#son">Les maquettes audio</a></li>
+      <li><a href="#evenements">Les événements</a></li>
+      <li><a href="#concerts">Le tableau de bord des concerts</a></li>
+      <li><a href="#taches">Les tâches</a></li>
+      <li><a href="#journal">Le journal de répète</a></li>
+      <li><a href="#scene">Le mode scène</a></li>
+      <li><a href="#fiche">La fiche technique</a></li>
+      <li><a href="#corbeille">La corbeille</a></li>
+      <li><a href="#recherche">La recherche</a></li>
+      <li><a href="#astuces">Astuces</a></li>
+      <li><a href="#faq">Questions fréquentes</a></li>
+    </ol>
   </div>
 
   <!-- 1. C'EST QUOI -->
   <h2 id="cest-quoi">🎯 C'est quoi Pupitre ?</h2>
-  <p>Pupitre est une <strong>application web collaborative</strong> faite pour les musiciens qui jonglent entre plusieurs projets. Chacun y retrouve ses groupes, ses morceaux, ses répètes et ses concerts — sans jamais mélanger les projets.</p>
+  <p>Pupitre est une <strong>application web collaborative</strong> faite pour les musiciens qui jonglent entre plusieurs projets. Chacun y retrouve ses groupes, ses morceaux, ses maquettes, ses répètes et ses concerts — sans jamais mélanger les projets.</p>
 
   <div class="grid2">
     <div class="card">
       <span class="ico">🎼</span>
       <h3>Un espace par groupe</h3>
-      <p>Répertoire, événements, tâches, membres : tout est cloisonné. Chaque musicien ne voit que les groupes où il joue, et leurs membres. Jacques voit ses 4 groupes, Marco seulement les 2 où il joue.</p>
+      <p>Répertoire, événements, tâches, membres : tout est cloisonné. Chaque musicien ne voit que les groupes où il joue, et leurs membres.</p>
     </div>
     <div class="card">
       <span class="ico">🔄</span>
@@ -229,14 +225,14 @@
       <p>Ce que l'un écrit, les autres le voient en quelques secondes. Plus de « je te renvoie la setlist par mail ».</p>
     </div>
     <div class="card">
+      <span class="ico">🎧</span>
+      <h3>Maquettes intégrées</h3>
+      <p>Upload direct des fichiers audio depuis l'appli. Écoute en un clic depuis n'importe quel appareil.</p>
+    </div>
+    <div class="card">
       <span class="ico">🎤</span>
       <h3>Pensée pour la scène</h3>
       <p>Mode plein écran avec paroles, accords, structure, métronome et swipe pour passer d'un morceau à l'autre.</p>
-    </div>
-    <div class="card">
-      <span class="ico">🧭</span>
-      <h3>Vue unifiée</h3>
-      <p>Un écran « Aujourd'hui » qui rassemble l'essentiel de tous tes groupes, pour ne plus rien oublier.</p>
     </div>
   </div>
 
@@ -245,7 +241,7 @@
     <p>C'est le classeur du groupe, la setlist du concert, le carnet d'idées et le calendrier des répètes — réunis dans une seule page qui tient dans la poche.</p>
   </div>
 
-    <!-- 2. PREMIERS PAS -->
+  <!-- 2. PREMIERS PAS -->
   <h2 id="premiers-pas">🚀 Premiers pas</h2>
 
   <div class="card">
@@ -279,6 +275,21 @@
     </div>
   </div>
 
+  <div class="callout ok">
+    <strong>✅ Astuce : ton lien personnel</strong>
+    <p>Un admin le génère depuis l'onglet <strong>Membres</strong> du groupe, avec le bouton <strong>Inviter</strong> à côté de ton nom. Il contient ton profil, ton code et la config de synchro : tu cliques dessus, tout est réglé. Garde-le pour toi : il donne accès à ton espace.</p>
+  </div>
+
+  <div class="callout warn">
+    <strong>🔗 Pense à lier ton compte Google</strong>
+    <p>Touche le bouton <strong>🔗</strong> en bas du menu. Si un jour tu changes de téléphone ou si tu te déconnectes, tu n'auras qu'à toucher « Se reconnecter avec Google » : pas besoin de demander une nouvelle invitation à un admin. Sans compte Google lié, il devra t'en renvoyer une.</p>
+  </div>
+
+  <div class="callout">
+    <strong>🔒 Tu ne vois que tes groupes</strong>
+    <p>Dans Pupitre, chacun ne voit que les groupes où il joue et les musiciens de ces groupes. Les autres projets restent invisibles. Un groupe manque ? Demande à un admin de t'y ajouter.</p>
+  </div>
+
   <!-- 3. LES ESPACES -->
   <h2 id="espaces">🧭 Les 5 espaces de l'appli</h2>
   <p>Le menu de gauche (ou le ☰ sur mobile) contient 4 grandes portes. L'appli s'ouvre sur <strong>Mes groupes</strong>.</p>
@@ -287,14 +298,14 @@
     <span class="em">🏠</span>
     <div class="body">
       <strong>Aujourd'hui</strong>
-      <span>Ton tableau de bord personnel : prochains événements, tâches à faire, morceaux en cours. Tous tes groupes confondus. Il y a un filtre en haut pour isoler un groupe en particulier.</span>
+      <span>Ton tableau de bord personnel : prochains événements, tâches à faire, morceaux en cours, et la carte « À réviser avant la répète ». Tous tes groupes confondus, avec un filtre en haut pour isoler un groupe.</span>
     </div>
   </div>
   <div class="mini-card">
     <span class="em">🎼</span>
     <div class="body">
       <strong>Mes groupes</strong>
-      <span>La liste de tes groupes, c'est la page d'accueil de l'appli. Clique sur l'un d'eux pour entrer dans son espace : membres, répertoire, tâches, événements, journal, stats, notes privées.</span>
+      <span>La liste de tes groupes, c'est la page d'accueil. Clique sur l'un d'eux pour entrer dans son espace : membres, répertoire, tâches, événements, journal, stats, notes privées.</span>
     </div>
   </div>
   <div class="mini-card">
@@ -318,7 +329,9 @@
       <span>Visible uniquement par l'administrateur. Invitation de chaque musicien par QR code et code court, suivi de ceux qui sont déjà connectés, retrait d'un accès. Tu peux aussi <strong>modifier</strong> un musicien (nom, initiales, instruments, couleur) et l'<strong>ajouter à d'autres groupes</strong> en un clic. Détails <a href="#musiciens">ici</a>.</span>
     </div>
   </div>
+
   <hr>
+
   <!-- 4. GÉRER LES MUSICIENS -->
   <h2 id="musiciens">🧑‍🎤 Gérer les musiciens</h2>
   <p>Tout ce qui touche aux personnes se trouve à deux endroits : la page <strong>🧑‍🎤 Musiciens</strong> (vue d'ensemble, réservée à l'admin) et l'onglet <strong>Membres</strong> d'un groupe (fiche détaillée par groupe).</p>
@@ -433,39 +446,103 @@
   </div>
 
   <hr>
-  <!-- 4. MORCEAUX -->
+
+  <!-- 5. MORCEAUX -->
   <h2 id="morceaux">🎵 Les morceaux</h2>
-  <p>Chaque groupe a son répertoire. Les morceaux sont affichés soit en <strong>pipeline</strong> (colonnes par statut : Idée → Écriture → Maquette → Arrangement → Répétition → Prêt scène → En concert → Archivé), soit en <strong>liste</strong>. Le bouton en haut à droite permet de basculer.</p>
+  <p>Chaque groupe a son répertoire. Les morceaux sont affichés soit en <strong>pipeline</strong> (colonnes par statut : Idée → Écriture → Maquette → Arrangement → Répétition → Prêt scène → En concert → Archivé), soit en <strong>liste</strong> (alphabétique). Le bouton en haut à droite bascule entre les deux, plus une vue <strong>🎧 Son</strong>.</p>
 
   <div class="grid2">
     <div class="card">
-      <span class="ico">📝</span>
-      <h3>Contenu d'un morceau</h3>
-      <p>Titre, tonalité, BPM, durée, structure, accords, paroles, notes de travail. Tout est éditable à tout moment avec le bouton <strong>Modifier</strong>.</p>
+      <span class="ico">🎯</span>
+      <h3>Fiche d'un morceau</h3>
+      <p>Dans cet ordre : <strong>Tonalité</strong>, <strong>Accords</strong>, <strong>Structure</strong>, <strong>Paroles</strong>, <strong>Notes de travail</strong>. Tout est éditable à tout moment.</p>
     </div>
     <div class="card">
-      <span class="ico">🎯</span>
+      <span class="ico">🎸</span>
       <h3>Parties par instrument</h3>
-      <p>Chaque membre peut écrire ses propres notes pour un morceau (riff en drop D, capo 2, entrée au 2e couplet…). Visibles par tous les membres du groupe, modifiables par chacun pour sa partie.</p>
+      <p>Chaque membre peut écrire ses propres notes pour un morceau (riff en drop D, capo 2, entrée au 2e couplet…). Visibles par tous les membres du groupe.</p>
     </div>
     <div class="card">
       <span class="ico">📼</span>
       <h3>Versions</h3>
-      <p>Chaque morceau garde son historique de maquettes : v1, v2, « maquette téléphone »… Avec un lien audio et des notes. Un lecteur intégré permet d'écouter directement dans l'appli.</p>
+      <p>Chaque morceau garde son historique de maquettes : v1, v2, « maquette téléphone »… Avec un lecteur intégré pour écouter directement.</p>
     </div>
     <div class="card">
       <span class="ico">📋</span>
       <h3>Copier vers…</h3>
-      <p>Un morceau qui pourrait marcher dans un autre de tes groupes ? Le bouton « Copier vers… » le duplique dans les groupes de ton choix, sans toucher à l'original.</p>
+      <p>Un morceau qui pourrait marcher dans un autre groupe ? Le bouton « Copier vers… » le duplique dans les groupes de ton choix, sans toucher à l'original.</p>
     </div>
   </div>
 
   <div class="callout">
-    <strong>💡 Bon à savoir</strong>
-    <p>Les morceaux sont rattachés à un <strong>groupe</strong>. Si tu changes de groupe avec les onglets en haut de la page d'un groupe, tu vois le répertoire de l'autre groupe.</p>
+    <strong>💡 Tri alphabétique</strong>
+    <p>Dans toutes les vues (Pipeline, Liste, dropdowns d'ajout à une setlist, page Copier vers…), les morceaux apparaissent par ordre alphabétique. Les accents sont ignorés (« Écume » se place à côté de « Ecume »).</p>
   </div>
 
-  <!-- 5. ÉVÉNEMENTS -->
+  <!-- 6. SON -->
+  <h2 id="son">🎧 Les maquettes audio (vue Son)</h2>
+  <p>La vue <strong>🎧 Son</strong> rassemble tous les enregistrements d'un groupe. C'est l'endroit idéal pour écouter les idées en travaillant.</p>
+
+  <h3>Comment ça marche</h3>
+  <ul class="check">
+    <li>Elle affiche <strong>uniquement les morceaux qui ont au moins un fichier audio</strong>.</li>
+    <li>Chaque morceau apparaît dans une carte avec toutes ses versions, la plus récente en premier.</li>
+    <li>Clique sur <strong>▶ Écouter</strong> pour lancer une version : le lecteur apparaît en bas.</li>
+    <li>Le lecteur continue même si tu changes de page dans l'appli.</li>
+    <li>Clique sur <strong>✕</strong> pour fermer le lecteur.</li>
+  </ul>
+
+  <h3>Ajouter une maquette à un morceau</h3>
+  <div class="card">
+    <div class="step">
+      <div class="num">1</div>
+      <div>
+        <h3>Ouvre le morceau → Versions</h3>
+        <p>Tu vois la liste des versions existantes, ou « Aucune version ».</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num">2</div>
+      <div>
+        <h3>Clique + Version</h3>
+        <p>Un formulaire s'ouvre : label, notes, fichier audio.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num">3</div>
+      <div>
+        <h3>Choisis ton fichier</h3>
+        <p>Clique sur <strong>« Choisir un fichier »</strong> et sélectionne ton M4A, MP3, MP4… L'envoi démarre tout seul à la validation.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num">4</div>
+      <div>
+        <h3>Clique Créer</h3>
+        <p>Le bouton affiche <strong>Envoi…</strong> pendant quelques secondes selon la taille. Puis la version apparaît avec son bouton ▶.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>💾 Où vont mes fichiers ?</strong>
+    <p>Ils sont stockés sur un service cloud sécurisé. Seuls les membres de ton groupe peuvent y accéder. Les fichiers restent disponibles même après la fermeture de l'appli.</p>
+  </div>
+
+  <div class="callout warn">
+    <strong>📏 Taille des fichiers</strong>
+    <p>Reste sous <strong>20 Mo par fichier</strong> pour un envoi rapide. Un MP3 de 5 minutes en qualité standard fait environ 5 Mo.</p>
+  </div>
+
+  <h3>Modifier ou supprimer une version</h3>
+  <p>Sur la fiche du morceau, dans la section <strong>Versions</strong> :</p>
+  <ul class="check">
+    <li><strong>✎</strong> pour modifier (label, notes, remplacer le fichier)</li>
+    <li><strong>✕</strong> pour supprimer la version. Le fichier audio est retiré du serveur dans la foulée — pas d'encombrement.</li>
+    <li><strong>▶ Écouter</strong> pour lancer la lecture</li>
+  </ul>
+
+  <!-- 7. ÉVÉNEMENTS -->
   <h2 id="evenements">📅 Les événements</h2>
   <p>Un événement, c'est une répète, un concert, une session studio, ou tout autre rendez-vous que tu inventes. Chaque groupe a sa liste, avec les événements à venir en premier.</p>
 
@@ -473,28 +550,28 @@
     <span class="em">🎸</span>
     <div class="body">
       <strong>Type d'événement</strong>
-      <span>Répétition, Concert, Studio, Autre — et tu peux en créer d'autres (Résidence, Interview, Balance…) avec le bouton ＋ à côté du menu déroulant.</span>
+      <span>Répétition, Concert, Studio, Autre — et tu peux en créer d'autres (Résidence, Interview, Balance…) avec le bouton ＋.</span>
     </div>
   </div>
   <div class="mini-card">
     <span class="em">✅</span>
     <div class="body">
       <strong>Disponibilités</strong>
-      <span>Chaque membre indique <strong>Oui / Peut-être / Non</strong>. Un résumé s'affiche en haut de la fiche : « 3 oui, 1 peut-être, Marco sans réponse ».</span>
+      <span>Chaque membre indique <strong>Oui / Peut-être / Non</strong>. Un résumé s'affiche en haut : « 3 oui, 1 peut-être, Marco sans réponse ».</span>
     </div>
   </div>
   <div class="mini-card">
     <span class="em">⚠️</span>
     <div class="body">
       <strong>Conflits d'agenda</strong>
-      <span>Si un même musicien est attendu à deux endroits au même moment dans tes groupes, l'appli t'avertit automatiquement. Plus d'oubli : « Ah mince, Marco joue ailleurs ce soir-là ».</span>
+      <span>Si un même musicien est attendu à deux endroits au même moment, l'appli t'avertit automatiquement.</span>
     </div>
   </div>
   <div class="mini-card">
     <span class="em">🔁</span>
     <div class="body">
       <strong>Répétitions récurrentes</strong>
-      <span>Un formulaire (réservé aux admins) qui crée d'un coup toutes les répètes hebdo (ou bi-mensuelles) sur 3 mois. Un gain de temps énorme au démarrage d'une saison.</span>
+      <span>Un formulaire qui crée d'un coup toutes les répètes hebdo (ou bi-mensuelles) sur 3 mois.</span>
     </div>
   </div>
   <div class="mini-card">
@@ -505,19 +582,46 @@
     </div>
   </div>
 
-  <!-- 6. TÂCHES -->
+  <div class="card">
+    <h3>🎧 À réviser avant la répète</h3>
+    <p>Sur l'écran « Aujourd'hui », dès qu'une répétition est prévue dans les 14 prochains jours avec des morceaux à travailler en priorité, une carte apparaît en haut : la date, les notes de la répète et la liste des morceaux, avec tonalité, BPM et tes tâches liées.</p>
+    <p>Touche <strong>▶ Écouter</strong> pour lancer l'enregistrement le plus récent, et coche la case quand tu l'as travaillé. Sur la page de la répétition, chaque morceau indique combien de musiciens l'ont révisé.</p>
+  </div>
+
+  <div class="card">
+    <h3>📄 Envoyer la setlist en PDF</h3>
+    <p>Sur la page d'un événement, le bouton <strong>📄 PDF</strong> crée une feuille A4 propre avec le groupe, la date, le lieu, les morceaux numérotés, tonalité, BPM et durée totale. Choisis le <strong>grand format</strong> (lisible sur scène, à imprimer) ou le <strong>compact</strong> (plus de morceaux par page).</p>
+    <p>Sur téléphone et tablette, le menu de partage s'ouvre tout seul : message, WhatsApp, e-mail, AirDrop, impression. Le PDF se crée sur l'appareil, sans connexion internet.</p>
+  </div>
+
+  <!-- CONCERTS -->
+  <h2 id="concerts">🎤 Le tableau de bord des concerts</h2>
+  <p>L'entrée <strong>🎤 Concerts</strong> du menu rassemble toutes les dates de tes groupes, avec ce qui reste à préparer pour chacune.</p>
+
+  <div class="card">
+    <h3>En un coup d'œil</h3>
+    <p>Pour chaque concert : la setlist et sa durée, les réponses de disponibilité, la fiche technique, les points à faire, et le compte à rebours. Les repères en haut indiquent le nombre de concerts à venir, ceux qui n'ont pas de setlist et les réponses manquantes.</p>
+  </div>
+
+  <div class="card">
+    <h3>Cachet et répartition (administrateur seul)</h3>
+    <p>Sur la page d'un concert, l'administrateur saisit le cachet, les frais (essence, location…) et une éventuelle mise en caisse pour le groupe. L'appli calcule le net et la part de chacun. La case à gauche indique qui a joué, « part » permet une demi-part, et la case « payé » suit les reversements.</p>
+    <p>Ces montants sont <strong>stockés à part</strong> et ne sont lisibles que par l'administrateur : les autres musiciens ne les voient pas. Un export CSV est disponible pour la comptabilité.</p>
+  </div>
+
+  <!-- 8. TÂCHES -->
   <h2 id="taches">✅ Les tâches</h2>
   <p>Chaque groupe a sa liste de tâches, pour ne plus oublier « écrire le 2e couplet » ou « confirmer le cachet ».</p>
 
   <ul class="check">
     <li><strong>Plusieurs responsables par tâche</strong> — tu peux cocher Jacques <em>et</em> Marco.</li>
     <li><strong>Échéance</strong> — les tâches en retard passent en rouge, celles du jour en orange.</li>
-    <li><strong>Lien vers un morceau</strong> — la tâche apparaît alors directement sur la fiche du morceau concerné.</li>
+    <li><strong>Lien vers un morceau</strong> — la tâche apparaît alors directement sur la fiche du morceau.</li>
     <li><strong>Modification</strong> — le crayon ✎ ouvre la fiche sans supprimer.</li>
-    <li><strong>Tri automatique</strong> — les plus urgentes en haut.</li>
+    <li><strong>Suppression douce</strong> — le bouton 🗑️ envoie la tâche à la corbeille (restauration possible 30 jours).</li>
   </ul>
 
-  <!-- 7. JOURNAL -->
+  <!-- 9. JOURNAL -->
   <h2 id="journal">📖 Le journal de répète</h2>
   <p>Après chaque répète, chacun peut noter ce qui s'est passé — en trois questions simples.</p>
 
@@ -541,7 +645,7 @@
     </div>
   </div>
 
-  <!-- 8. MODE SCÈNE -->
+  <!-- 10. MODE SCÈNE -->
   <h2 id="scene">🎤 Le mode scène</h2>
   <p>C'est le mode plein écran, pensé pour le concert ou la répète. Il s'ouvre depuis la fiche d'un événement, via le bouton <strong>🎤 Mode scène</strong>.</p>
 
@@ -556,14 +660,14 @@
     <span class="em">👉</span>
     <div class="body">
       <strong>Navigation au swipe</strong>
-      <span>Glisse le doigt vers la gauche ou la droite pour passer au morceau suivant ou précédent. Sur ordinateur, utilise les flèches ← →.</span>
+      <span>Glisse le doigt vers la gauche ou la droite pour passer au morceau suivant ou précédent. Sur ordinateur : flèches ← →.</span>
     </div>
   </div>
   <div class="mini-card">
     <span class="em">🔍</span>
     <div class="body">
       <strong>Taille ajustable</strong>
-      <span>Les boutons <strong>A− / A+</strong> en haut changent la taille du texte. Pratique si l'iPad est posé au sol ou accroché au pied de micro.</span>
+      <span>Les boutons <strong>A− / A+</strong> changent la taille du texte. Pratique si l'iPad est posé au sol ou accroché au pied de micro.</span>
     </div>
   </div>
   <div class="mini-card">
@@ -577,7 +681,7 @@
     <span class="em">🎯</span>
     <div class="body">
       <strong>Ta partie mise en avant</strong>
-      <span>Si tu as écrit des notes pour ton instrument, elles s'affichent en premier parmi les parties du groupe, sous les accords et les paroles. Tes notes privées sont aussi affichées, en bleu.</span>
+      <span>Si tu as écrit des notes pour ton instrument, elles apparaissent en haut du morceau. Tes notes privées sont aussi affichées, en bleu.</span>
     </div>
   </div>
 
@@ -586,7 +690,7 @@
     <p>Tant que tu es en mode scène, l'appareil reste allumé. Pas de mauvaise surprise au milieu du 2e morceau.</p>
   </div>
 
-  <!-- 9. FICHE TECHNIQUE -->
+  <!-- 11. FICHE TECHNIQUE -->
   <h2 id="fiche">🎛️ La fiche technique</h2>
   <p>Directement sur la page d'un événement, une section pour préparer le concert avec le régisseur son.</p>
 
@@ -601,14 +705,14 @@
     <span class="em">🎨</span>
     <div class="body">
       <strong>Plan de scène</strong>
-      <span>Texte libre pour décrire qui se place où — plus une <strong>image</strong> (photo prise sur place ou dessin fait à l'avance) que tu peux changer ou retirer.</span>
+      <span>Texte libre pour décrire qui se place où — plus une <strong>image</strong> que tu peux changer ou retirer.</span>
     </div>
   </div>
   <div class="mini-card">
     <span class="em">🎒</span>
     <div class="body">
       <strong>Matériel à apporter</strong>
-      <span>Checklist avec un responsable par ligne. Chacun coche ce qu'il apporte, tu vois d'un coup d'œil ce qui est prêt.</span>
+      <span>Checklist avec un responsable par ligne. Chacun coche ce qu'il apporte.</span>
     </div>
   </div>
   <div class="mini-card">
@@ -619,7 +723,48 @@
     </div>
   </div>
 
-  <!-- 10. RECHERCHE -->
+  <hr>
+
+  <!-- 12. CORBEILLE -->
+  <h2 id="corbeille">🗑️ La corbeille</h2>
+  <p>Quand tu supprimes un morceau, un événement ou une tâche, il ne disparaît pas tout de suite : il part dans la <strong>corbeille</strong>, où tu peux le récupérer pendant 30 jours. Après, il est purgé automatiquement.</p>
+
+  <div class="card">
+    <div class="step">
+      <div class="num">1</div>
+      <div>
+        <h3>Comment y accéder</h3>
+        <p>Dans le menu, section <strong>Sauvegarde</strong>, clique sur <strong>🗑️ Corbeille</strong>. Tu vois la liste des éléments supprimés récemment, avec leur date de suppression et le temps restant avant purge définitive.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num">2</div>
+      <div>
+        <h3>Restaurer un élément</h3>
+        <p>Clique sur <strong>Restaurer</strong> : l'élément réapparaît immédiatement là où il était. Pour un morceau, ses versions, ses tâches liées et ses notes privées sont aussi restaurées.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num">3</div>
+      <div>
+        <h3>Effacer définitivement</h3>
+        <p>Clique sur <strong>Effacer</strong> si tu es sûr. Cette action est irréversible : les fichiers audio associés sont retirés du serveur, les images aussi.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout ok">
+    <strong>✅ Finies les fausses manips</strong>
+    <p>Plus de « oh non j'ai supprimé le concert par erreur ». Tout est récupérable pendant 30 jours. Après, c'est propre et définitif.</p>
+  </div>
+
+  <div class="card">
+    <h3>🧹 Nettoyer les médias orphelins</h3>
+    <p>Tout en haut de la Corbeille, un bouton <strong>🧹 Nettoyer les médias orphelins</strong> scanne le serveur à la recherche de fichiers audio ou d'images qui ne sont plus rattachés à aucun contenu. C'est utile après avoir beaucoup manipulé de maquettes ou de plans de scène.</p>
+    <p>Ce nettoyage est <strong>sans risque</strong> : il ne touche que les fichiers réellement abandonnés. Tu peux cliquer dessus aussi souvent que tu veux, ça ne fait rien s'il n'y a rien à nettoyer.</p>
+  </div>
+
+  <!-- 13. RECHERCHE -->
   <h2 id="recherche">🔍 La recherche</h2>
   <p>Une seule barre, tous les résultats. Tape 2 lettres minimum, l'appli cherche en direct dans :</p>
   <ul class="check">
@@ -638,7 +783,7 @@
 
   <hr>
 
-  <!-- 11. ASTUCES -->
+  <!-- 14. ASTUCES -->
   <h2 id="astuces">✨ Astuces & bonnes pratiques</h2>
 
   <div class="grid2">
@@ -650,17 +795,17 @@
     <div class="card">
       <span class="ico">🔒</span>
       <h3>Notes privées</h3>
-      <p>Sur la page d'un morceau et dans l'onglet d'un groupe, tu as des notes visibles uniquement par toi. Elles restent sur ton appareil et ne sont pas synchronisées : idéal pour un brouillon personnel.</p>
+      <p>Sur la page d'un morceau et dans l'onglet d'un groupe, tu as des notes visibles uniquement par toi. Elles restent sur ton appareil et ne sont pas synchronisées.</p>
     </div>
     <div class="card">
-      <span class="ico">🔑</span>
-      <h3>Change ton code</h3>
-      <p>Bouton <strong>🔑</strong> en bas du menu : tu saisis ton code actuel puis le nouveau (4 à 6 chiffres). Choisis un code que les autres ne peuvent pas deviner.</p>
+      <span class="ico">🗑️</span>
+      <h3>Corbeille 30 jours</h3>
+      <p>Toute suppression est réversible pendant 30 jours. Pas de stress.</p>
     </div>
     <div class="card">
       <span class="ico">⬇️</span>
       <h3>Sauvegarde de temps en temps</h3>
-      <p>Le bouton <strong>Exporter</strong> ouvre une fenêtre avec deux options : « Partager » (enregistrer dans Fichiers, envoyer par mail…) ou « Copier tout » pour coller la sauvegarde dans une note. Une fois par mois, tu es tranquille. Pour restaurer, utilise <strong>Importer</strong> (fichier) ou <strong>Importer (coller)</strong>.</p>
+      <p>Le bouton <strong>Exporter</strong> ouvre une fenêtre avec deux options : « Partager » (enregistrer dans Fichiers, envoyer par mail…) ou « Copier tout ». Une fois par mois, tu es tranquille.</p>
     </div>
     <div class="card">
       <span class="ico">🌐</span>
@@ -670,16 +815,21 @@
     <div class="card">
       <span class="ico">⚡</span>
       <h3>Synchro automatique</h3>
-      <p>Pas de bouton « sauvegarder » à chercher. Chaque modification part au serveur en moins d'une seconde.</p>
+      <p>Pas de bouton « sauvegarder ». Chaque modification part au serveur en moins d'une seconde.</p>
     </div>
     <div class="card">
       <span class="ico">👥</span>
       <h3>Rôle admin</h3>
-      <p>Un admin peut modifier un groupe, gérer les membres (ajouter, retirer, créer un nouveau musicien), changer les rôles, définir ou réinitialiser le code d'un musicien (bouton <strong>Code</strong>) et envoyer à chacun son lien personnel. Les membres normaux peuvent tout créer (morceaux, événements, tâches).</p>
+      <p>Un admin peut modifier un groupe, gérer les membres, changer les rôles et envoyer à chacun son lien personnel. Les membres normaux peuvent tout créer (morceaux, événements, tâches).</p>
+    </div>
+    <div class="card">
+      <span class="ico">🎵</span>
+      <h3>Tri alphabétique partout</h3>
+      <p>Les morceaux apparaissent toujours dans l'ordre alphabétique, avec accents et casse ignorés, dans toutes les vues et tous les dropdowns.</p>
     </div>
   </div>
 
-  <!-- 12. FAQ -->
+  <!-- 15. FAQ -->
   <h2 id="faq">❓ Questions fréquentes</h2>
 
   <div class="card">
@@ -688,27 +838,31 @@
   </div>
   <div class="card">
     <h3>L'appli me dit « Prénom non reconnu » ou « Code incorrect »</h3>
-    <p>« Code incorrect » : vérifie ton code, ou demande à un admin de le réinitialiser. « Prénom non reconnu » : vérifie l'orthographe de ton prénom (accents et majuscules sans importance). Si ça ne marche toujours pas, c'est que tu n'as pas encore été créé : demande à un admin de t'ajouter, dans l'onglet <strong>Membres</strong> de ton groupe → <strong>+ Nouveau musicien</strong>. Attends quelques secondes que la synchro arrive sur ton appareil, puis réessaie.</p>
+    <p>« Code incorrect » : vérifie ton code, ou demande à un admin de le réinitialiser. « Prénom non reconnu » : vérifie l'orthographe. Si ça ne marche toujours pas, tu n'as pas encore été créé : demande à un admin de t'ajouter via <strong>+ Nouveau musicien</strong> dans l'onglet Membres d'un groupe.</p>
   </div>
   <div class="card">
     <h3>Comment changer mon code ? J'ai oublié mon code</h3>
-    <p>Pour le changer : touche <strong>🔑</strong> en bas du menu, saisis ton code actuel, puis le nouveau (4 à 6 chiffres). Si tu l'as oublié, demande à un admin : il peut te le réinitialiser depuis l'onglet <strong>Membres</strong>, bouton <strong>Code</strong>. Ton ancien lien personnel ne fonctionnera alors plus, il t'en donnera un nouveau.</p>
+    <p>Pour le changer : touche <strong>🔑</strong> en bas du menu, saisis ton code actuel, puis le nouveau (4 à 6 chiffres). Si tu l'as oublié, un admin peut le réinitialiser depuis l'onglet Membres. Ton ancien lien personnel ne fonctionnera alors plus, il t'en donnera un nouveau.</p>
   </div>
   <div class="card">
     <h3>Je ne vois pas un groupe, ou un musicien</h3>
-    <p>C'est voulu : chacun ne voit que les groupes dont il est membre, et seulement les musiciens de ces groupes. Si tu dois rejoindre un groupe, demande à un admin de t'y ajouter.</p>
+    <p>C'est voulu : chacun ne voit que les groupes dont il est membre, et seulement les musiciens de ces groupes. Demande à un admin de t'ajouter au groupe manquant.</p>
   </div>
   <div class="card">
     <h3>Comment changer mon instrument selon les groupes ?</h3>
-    <p>Sur la page d'un groupe, onglet Membres, un admin peut préciser ton instrument spécifique à ce groupe (bouton <strong>Instrument</strong> sur ta carte).</p>
+    <p>Sur la page d'un groupe, onglet Membres, un admin peut préciser ton instrument spécifique à ce groupe (bouton <strong>Instrument</strong> sur ta carte). L'instrument par défaut (dans ✎ Modifier) reste utilisé pour les autres groupes.</p>
+  </div>
+  <div class="card">
+    <h3>J'ai supprimé un morceau par erreur, comment le récupérer ?</h3>
+    <p>Menu → <strong>🗑️ Corbeille</strong> → clique sur <strong>Restaurer</strong> à côté du morceau. Ses versions, ses tâches liées et ses notes privées sont restaurées en même temps. Tu as 30 jours pour le faire, après quoi la suppression devient définitive.</p>
   </div>
   <div class="card">
     <h3>Puis-je utiliser l'appli sur plusieurs appareils ?</h3>
-    <p>Oui. Chaque appareil garde sa propre config. Le plus simple : ouvre ton <strong>lien personnel</strong> sur chaque appareil, il contient tout (profil, code, synchro). Tes notes privées, elles, restent sur l'appareil où tu les as écrites.</p>
+    <p>Oui. Chaque appareil garde sa propre session. Le plus simple : ouvre ton <strong>lien personnel</strong> sur chaque appareil, il contient tout (profil, code, synchro). Tes notes privées, elles, restent sur l'appareil où tu les as écrites.</p>
   </div>
   <div class="card">
-    <h3>Que se passe-t-il si je supprime un morceau ?</h3>
-    <p>Le morceau disparaît du répertoire, ainsi que ses versions, ses tâches liées et ses notes privées. Il est aussi retiré des setlists où il apparaissait. Action irréversible : en cas de doute, fais une sauvegarde (Exporter) avant.</p>
+    <h3>Que se passe-t-il si je supprime une version audio ?</h3>
+    <p>La version disparaît tout de suite (pas de corbeille pour les versions audio, pour ne pas surcharger le serveur) et le fichier est retiré du serveur. Action immédiate et définitive.</p>
   </div>
   <div class="card">
     <h3>Le métronome ne fait pas de son</h3>
@@ -716,7 +870,7 @@
   </div>
   <div class="card">
     <h3>Mes images de plan de scène ne s'affichent pas chez les autres</h3>
-    <p>Vérifie que la synchro est active. La première fois, une image peut mettre quelques secondes à arriver. Si le problème persiste, utilise « Changer » pour envoyer l'image à nouveau.</p>
+    <p>Vérifie que la synchro est active. La première fois, une image peut mettre quelques secondes à arriver. Si le problème persiste, utilise « Changer » pour renvoyer l'image.</p>
   </div>
 
   <div class="center">
