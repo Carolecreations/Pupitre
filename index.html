@@ -826,7 +826,7 @@ const upcomingEvents = () => {
 const songsInProgress = () => data.songs.filter(s =>
   myGroups().some(g=>g.id===s.groupId && gFilter(g)) &&
   !['pret','concert','archive'].includes(s.status)
-);
+).sort((a,b)=>(a.title||'').localeCompare(b.title||'','fr',{sensitivity:'base'}));
 
 function render(){
   const root = $('#root');
