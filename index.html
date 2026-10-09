@@ -923,6 +923,7 @@ async function claimInvite_(raw){
   let u; try{ u = await ensureSignedIn(); }catch(e){ return {err: authErrMsg(e) || 'Connexion impossible.'}; }
   const t = await u.getIdToken();
   let r;
+  try{ r = await fetch(withAuth(DB_URL + '/invites/' + code + '.json', t)); }
   catch(e){ return {err:'Pas de connexion internet.'}; }
   if(!r.ok) return {err:'Accès à la base refusé (' + r.status + ').'};
   const inv = await r.json();
@@ -932,7 +933,6 @@ async function claimInvite_(raw){
     {method:'PUT', body:JSON.stringify(Object.assign({userId:inv.userId, code, via:'invite', at:Date.now()}, inv.admin ? {admin:true} : {}))});
   if(!r.ok) return {err:'Invitation refusée (' + r.status + ').'};
   await fetch(withAuth(DB_URL + '/userRooms/' + u.uid + '.json', t), {method:'PUT', body:JSON.stringify({room:inv.room, userId:inv.userId})}).catch(()=>{});
-  await fetch(withAuth(DB_URL + '/invites/' + code + '.json', t), {method:'DELETE'}).catch(()=>{});
   storeAccess(inv.room, inv.userId, !!inv.admin);
   return {ok:true};
 }
