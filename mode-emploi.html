@@ -26,9 +26,9 @@
   code{background:var(--panel2);border:1px solid var(--border);padding:1px 6px;border-radius:6px;
     font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
   .wrap{max-width:820px;margin:0 auto;padding:36px 22px 120px}
-    html{scroll-behavior:smooth}
-      h2[id]{scroll-margin-top:24px}
-        .step[id]{scroll-margin-top:24px}
+  html{scroll-behavior:smooth}
+  h2[id]{scroll-margin-top:24px}
+  .step[id]{scroll-margin-top:24px}
 
   /* HERO */
   .hero{
@@ -42,16 +42,8 @@
     display:grid;place-items:center;font-size:48px;
     box-shadow:0 14px 44px rgba(99,102,241,.40);
   }
-  .hero h1{
-    font-size:48px;
-    margin:0 0 10px;
-    letter-spacing:-1px;
-    color:#ffffff;
-    font-weight:800;
-  }
-  .hero p{
-    font-size:18px;color:var(--muted);max-width:580px;margin:12px auto 0;
-  }
+  .hero h1{font-size:48px;margin:0 0 10px;letter-spacing:-1px;color:#ffffff;font-weight:800}
+  .hero p{font-size:18px;color:var(--muted);max-width:580px;margin:12px auto 0}
   .hero .tags{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:28px}
   .tag{
     display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:22px;
@@ -202,7 +194,6 @@
       <li><a href="#journal">Le journal de répète</a></li>
       <li><a href="#scene">Le mode scène</a></li>
       <li><a href="#fiche">La fiche technique</a></li>
-      <li><a href="#corbeille">La corbeille</a></li>
       <li><a href="#recherche">La recherche</a></li>
       <li><a href="#astuces">Astuces</a></li>
       <li><a href="#faq">Questions fréquentes</a></li>
@@ -248,22 +239,22 @@
     <div class="step">
       <div class="num">1</div>
       <div>
-        <h3>Ouvre ton lien</h3>
-        <p>Un admin t'envoie ton <strong>lien personnel</strong>. Ouvre-le dans Safari (iPad/iPhone) ou Chrome (Android/PC) : il te mène directement dans ton espace, sans rien taper.</p>
+        <h3>Reçois ton code personnel</h3>
+        <p>Un admin te transmet ton <strong>code personnel</strong> (8 caractères, type <code>MARCO123</code>) par message ou QR code. Ce code t'est propre : il est <strong>permanent</strong>, garde-le quelque part (note, SMS à toi-même, gestionnaire de mots de passe).</p>
       </div>
     </div>
     <div class="step" id="acces-code">
       <div class="num">2</div>
       <div>
-        <h3>Entre ton prénom et ton code, si on te le demande</h3>
-        <p>Si tu arrives sur l'écran d'accueil au lieu de ton espace, tape ton <strong>prénom</strong> et ton <strong>code</strong>, puis « Entrer » (les accents et les majuscules n'ont pas d'importance pour le prénom). Ton code t'est donné par un admin. Si l'appli répond « Prénom non reconnu », demande à un admin de t'ajouter à ton groupe.</p>
+        <h3>Entre ton code</h3>
+        <p>Ouvre Pupitre, tape ton code dans le champ <strong>Code</strong> et clique sur <strong>Entrer</strong>. Les majuscules et les tirets sont facultatifs. Tu arrives directement dans ton espace.</p>
       </div>
     </div>
     <div class="step" id="synchronisation">
       <div class="num">3</div>
       <div>
         <h3>Vérifie la synchro</h3>
-        <p>Avec ton lien personnel, elle est déjà réglée. Dans le menu, la pastille à côté de <strong>☁️ Synchro</strong> doit afficher <strong>● à jour</strong>. Sinon, clique sur Synchro et colle l'URL Firebase + le code du groupe donnés par un admin : sans synchro, tu verrais ce que tu écris, mais pas ce que les autres écrivent.</p>
+        <p>Dans le menu, la pastille à côté de <strong>☁️ Synchro</strong> doit afficher <strong>● à jour</strong>. Si elle dit <strong>○ hors ligne</strong>, clique dessus et vérifie que l'URL Firebase et le code de groupe sont bien remplis (ils te sont donnés par un admin).</p>
       </div>
     </div>
     <div class="step" id="installation">
@@ -276,13 +267,13 @@
   </div>
 
   <div class="callout ok">
-    <strong>✅ Astuce : ton lien personnel</strong>
-    <p>Un admin le génère depuis l'onglet <strong>Membres</strong> du groupe, avec le bouton <strong>Inviter</strong> à côté de ton nom. Il contient ton profil, ton code et la config de synchro : tu cliques dessus, tout est réglé. Garde-le pour toi : il donne accès à ton espace.</p>
+    <strong>✅ Ton code est permanent</strong>
+    <p>Une fois que tu as ton code, tu peux l'utiliser autant de fois que nécessaire — sur ton téléphone, ta tablette, ton ordinateur. Si un jour tu es déconnecté (nouvel appareil, cache vidé…), retape simplement le même code.</p>
   </div>
 
   <div class="callout warn">
-    <strong>🔗 Pense à lier ton compte Google</strong>
-    <p>Touche le bouton <strong>🔗</strong> en bas du menu. Si un jour tu changes de téléphone ou si tu te déconnectes, tu n'auras qu'à toucher « Se reconnecter avec Google » : pas besoin de demander une nouvelle invitation à un admin. Sans compte Google lié, il devra t'en renvoyer une.</p>
+    <strong>🔗 Pense à lier ton compte Google (ordinateur)</strong>
+    <p>Sur un <strong>ordinateur</strong>, tu peux lier ton compte Google via le bouton <strong>🔗</strong> en bas du menu : ça te permet de te reconnecter en un clic si tu perds ton code. <strong>Sur iPhone/iPad, ce bouton ne fonctionne pas</strong> — c'est une limitation d'iOS. Dans ce cas, ton code permanent reste ta solution principale.</p>
   </div>
 
   <div class="callout">
@@ -292,7 +283,7 @@
 
   <!-- 3. LES ESPACES -->
   <h2 id="espaces">🧭 Les 5 espaces de l'appli</h2>
-  <p>Le menu de gauche (ou le ☰ sur mobile) contient 4 grandes portes. L'appli s'ouvre sur <strong>Mes groupes</strong>.</p>
+  <p>Le menu de gauche (ou le ☰ sur mobile) contient plusieurs entrées. Quatre sont accessibles à tous, la cinquième (<strong>Musiciens</strong>) est réservée à l'admin.</p>
 
   <div class="mini-card">
     <span class="em">🏠</span>
@@ -326,7 +317,7 @@
     <span class="em">🧑‍🎤</span>
     <div class="body">
       <strong>Musiciens (admin)</strong>
-      <span>Visible uniquement par l'administrateur. Invitation de chaque musicien par QR code et code court, suivi de ceux qui sont déjà connectés, retrait d'un accès. Tu peux aussi <strong>modifier</strong> un musicien (nom, initiales, instruments, couleur) et l'<strong>ajouter à d'autres groupes</strong> en un clic. Détails <a href="#musiciens">ici</a>.</span>
+      <span>Visible uniquement par l'administrateur. Invitation de chaque musicien par QR code et code court, suivi de ceux qui sont déjà connectés, retrait d'un accès. Détails <a href="#musiciens">ici</a>.</span>
     </div>
   </div>
 
@@ -336,65 +327,30 @@
   <h2 id="musiciens">🧑‍🎤 Gérer les musiciens</h2>
   <p>Tout ce qui touche aux personnes se trouve à deux endroits : la page <strong>🧑‍🎤 Musiciens</strong> (vue d'ensemble, réservée à l'admin) et l'onglet <strong>Membres</strong> d'un groupe (fiche détaillée par groupe).</p>
 
-  <h3>Ajouter un musicien existant à un autre groupe</h3>
+  <h3>Ajouter un musicien à un groupe</h3>
   <div class="card">
     <div class="step">
       <div class="num">1</div>
       <div>
-        <h3>Ouvre la page 🧑‍🎤 Musiciens</h3>
-        <p>Tu vois chaque musicien avec, à droite, ses groupes actuels.</p>
+        <h3>Ouvre le groupe concerné</h3>
+        <p>Par exemple « Bipolaire ».</p>
       </div>
     </div>
     <div class="step">
       <div class="num">2</div>
       <div>
-        <h3>Menu déroulant « + Groupe… »</h3>
-        <p>Sous la fiche, choisis le groupe à rejoindre. C'est immédiat : le musicien apparaît aussitôt dans l'autre groupe, avec son instrument par défaut.</p>
+        <h3>Onglet Membres</h3>
+        <p>En haut à droite, tu as deux choix :
+        <br>• <strong>+ Ajouter un musicien existant…</strong> — pour rattacher quelqu'un qui existe déjà dans un autre groupe.
+        <br>• <strong>+ Nouveau musicien</strong> — pour créer une fiche toute neuve.</p>
       </div>
     </div>
     <div class="step">
       <div class="num">3</div>
       <div>
-        <h3>Pour retirer d'un groupe</h3>
-        <p>Clique sur le <strong>✕</strong> à côté du nom du groupe, dans la liste des badges. Le musicien reste dans ses autres groupes.</p>
+        <h3>Puis Inviter</h3>
+        <p>Une fois le musicien ajouté à un groupe, un bouton <strong>Inviter</strong> apparaît sur sa fiche dans l'onglet Membres (et sur la page 🧑‍🎤 Musiciens). Clique dessus pour générer son code personnel.</p>
       </div>
-    </div>
-  </div>
-
-  <div class="callout">
-    <strong>💡 Depuis un groupe</strong>
-    <p>Tu peux aussi faire l'inverse : dans un groupe, onglet <strong>Membres</strong>, menu <strong>+ Ajouter un musicien existant…</strong> en haut à droite.</p>
-  </div>
-
-  <h3>Modifier un musicien (corriger une faute, changer ses initiales…)</h3>
-  <p>Deux boutons <strong>✎ Modifier</strong> sont disponibles : sur la page 🧑‍🎤 Musiciens et sur chaque fiche membre à l'intérieur d'un groupe.</p>
-
-  <div class="mini-card">
-    <span class="em">📝</span>
-    <div class="body">
-      <strong>Prénom / nom</strong>
-      <span>Corrige une faute de frappe. La modification s'applique partout, dans tous les groupes.</span>
-    </div>
-  </div>
-  <div class="mini-card">
-    <span class="em">🔤</span>
-    <div class="body">
-      <strong>Initiales</strong>
-      <span>Les 2 lettres qui apparaissent dans l'avatar. Utile quand deux musiciens ont les mêmes initiales (« MM », « JC »…).</span>
-    </div>
-  </div>
-  <div class="mini-card">
-    <span class="em">🎨</span>
-    <div class="body">
-      <strong>Couleur</strong>
-      <span>La couleur de l'avatar dans toute l'appli. Chaque musicien peut aussi la changer lui-même depuis son avatar en bas du menu.</span>
-    </div>
-  </div>
-  <div class="mini-card">
-    <span class="em">🎸</span>
-    <div class="body">
-      <strong>Instruments (par défaut)</strong>
-      <span>La liste des instruments d'un musicien — affichée sous son nom. Sert de valeur de repli si aucun instrument n'est défini pour un groupe précis.</span>
     </div>
   </div>
 
@@ -413,21 +369,21 @@
       <div class="num">2</div>
       <div>
         <h3>Onglet Membres</h3>
-        <p>Trouve la fiche du musicien.</p>
+        <p>Trouve la fiche du musicien, bouton <strong>Instrument</strong>.</p>
       </div>
     </div>
     <div class="step">
       <div class="num">3</div>
       <div>
-        <h3>Clique sur Instrument</h3>
-        <p>Écris son rôle dans <em>ce</em> groupe précis (ex. « Basse, chœurs »). Laisse vide pour utiliser son instrument par défaut.</p>
+        <h3>Écris son rôle pour ce groupe</h3>
+        <p>Par exemple « Basse, chœurs ». Laisse vide pour utiliser son instrument par défaut.</p>
       </div>
     </div>
   </div>
 
   <div class="callout ok">
     <strong>✅ Logique d'affichage</strong>
-    <p>Partout dans l'appli : si un instrument est défini <strong>pour ce groupe</strong>, c'est celui-ci qui s'affiche. Sinon, c'est l'instrument <strong>par défaut</strong> du musicien. Tu n'as donc à définir un override que là où c'est vraiment utile.</p>
+    <p>Partout dans l'appli : si un instrument est défini <strong>pour ce groupe</strong>, c'est celui-ci qui s'affiche. Sinon, c'est l'instrument <strong>par défaut</strong> du musicien (celui saisi à sa création).</p>
   </div>
 
   <h3>Droits : admin ou membre</h3>
@@ -449,13 +405,13 @@
 
   <!-- 5. MORCEAUX -->
   <h2 id="morceaux">🎵 Les morceaux</h2>
-  <p>Chaque groupe a son répertoire. Les morceaux sont affichés soit en <strong>pipeline</strong> (colonnes par statut : Idée → Écriture → Maquette → Arrangement → Répétition → Prêt scène → En concert → Archivé), soit en <strong>liste</strong> (alphabétique). Le bouton en haut à droite bascule entre les deux, plus une vue <strong>🎧 Son</strong>.</p>
+  <p>Chaque groupe a son répertoire. Les morceaux sont affichés soit en <strong>pipeline</strong> (colonnes par statut : Idée → Écriture → Maquette → Arrangement → Répétition → Prêt scène → En concert → Archivé), soit en <strong>liste</strong>. Le bouton en haut à droite bascule entre les deux, plus une vue <strong>🎧 Son</strong>.</p>
 
   <div class="grid2">
     <div class="card">
       <span class="ico">🎯</span>
       <h3>Fiche d'un morceau</h3>
-      <p>Dans cet ordre : <strong>Tonalité</strong>, <strong>Accords</strong>, <strong>Structure</strong>, <strong>Paroles</strong>, <strong>Notes de travail</strong>. Tout est éditable à tout moment.</p>
+      <p>La tonalité et le BPM apparaissent sous le titre. En dessous : <strong>Structure</strong>, <strong>Accords</strong>, <strong>Paroles</strong>, <strong>Notes de travail</strong>. Tout est éditable à tout moment.</p>
     </div>
     <div class="card">
       <span class="ico">🎸</span>
@@ -472,11 +428,6 @@
       <h3>Copier vers…</h3>
       <p>Un morceau qui pourrait marcher dans un autre groupe ? Le bouton « Copier vers… » le duplique dans les groupes de ton choix, sans toucher à l'original.</p>
     </div>
-  </div>
-
-  <div class="callout">
-    <strong>💡 Tri alphabétique</strong>
-    <p>Dans toutes les vues (Pipeline, Liste, dropdowns d'ajout à une setlist, page Copier vers…), les morceaux apparaissent par ordre alphabétique. Les accents sont ignorés (« Écume » se place à côté de « Ecume »).</p>
   </div>
 
   <!-- 6. SON -->
@@ -618,7 +569,7 @@
     <li><strong>Échéance</strong> — les tâches en retard passent en rouge, celles du jour en orange.</li>
     <li><strong>Lien vers un morceau</strong> — la tâche apparaît alors directement sur la fiche du morceau.</li>
     <li><strong>Modification</strong> — le crayon ✎ ouvre la fiche sans supprimer.</li>
-    <li><strong>Suppression douce</strong> — le bouton 🗑️ envoie la tâche à la corbeille (restauration possible 30 jours).</li>
+    <li><strong>Suppression</strong> — le bouton ✕ retire la tâche définitivement (confirmation demandée).</li>
   </ul>
 
   <!-- 9. JOURNAL -->
@@ -725,46 +676,7 @@
 
   <hr>
 
-  <!-- 12. CORBEILLE -->
-  <h2 id="corbeille">🗑️ La corbeille</h2>
-  <p>Quand tu supprimes un morceau, un événement ou une tâche, il ne disparaît pas tout de suite : il part dans la <strong>corbeille</strong>, où tu peux le récupérer pendant 30 jours. Après, il est purgé automatiquement.</p>
-
-  <div class="card">
-    <div class="step">
-      <div class="num">1</div>
-      <div>
-        <h3>Comment y accéder</h3>
-        <p>Dans le menu, section <strong>Sauvegarde</strong>, clique sur <strong>🗑️ Corbeille</strong>. Tu vois la liste des éléments supprimés récemment, avec leur date de suppression et le temps restant avant purge définitive.</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="num">2</div>
-      <div>
-        <h3>Restaurer un élément</h3>
-        <p>Clique sur <strong>Restaurer</strong> : l'élément réapparaît immédiatement là où il était. Pour un morceau, ses versions, ses tâches liées et ses notes privées sont aussi restaurées.</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="num">3</div>
-      <div>
-        <h3>Effacer définitivement</h3>
-        <p>Clique sur <strong>Effacer</strong> si tu es sûr. Cette action est irréversible : les fichiers audio associés sont retirés du serveur, les images aussi.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="callout ok">
-    <strong>✅ Finies les fausses manips</strong>
-    <p>Plus de « oh non j'ai supprimé le concert par erreur ». Tout est récupérable pendant 30 jours. Après, c'est propre et définitif.</p>
-  </div>
-
-  <div class="card">
-    <h3>🧹 Nettoyer les médias orphelins</h3>
-    <p>Tout en haut de la Corbeille, un bouton <strong>🧹 Nettoyer les médias orphelins</strong> scanne le serveur à la recherche de fichiers audio ou d'images qui ne sont plus rattachés à aucun contenu. C'est utile après avoir beaucoup manipulé de maquettes ou de plans de scène.</p>
-    <p>Ce nettoyage est <strong>sans risque</strong> : il ne touche que les fichiers réellement abandonnés. Tu peux cliquer dessus aussi souvent que tu veux, ça ne fait rien s'il n'y a rien à nettoyer.</p>
-  </div>
-
-  <!-- 13. RECHERCHE -->
+  <!-- 12. RECHERCHE -->
   <h2 id="recherche">🔍 La recherche</h2>
   <p>Une seule barre, tous les résultats. Tape 2 lettres minimum, l'appli cherche en direct dans :</p>
   <ul class="check">
@@ -783,7 +695,7 @@
 
   <hr>
 
-  <!-- 14. ASTUCES -->
+  <!-- 13. ASTUCES -->
   <h2 id="astuces">✨ Astuces & bonnes pratiques</h2>
 
   <div class="grid2">
@@ -798,9 +710,9 @@
       <p>Sur la page d'un morceau et dans l'onglet d'un groupe, tu as des notes visibles uniquement par toi. Elles restent sur ton appareil et ne sont pas synchronisées.</p>
     </div>
     <div class="card">
-      <span class="ico">🗑️</span>
-      <h3>Corbeille 30 jours</h3>
-      <p>Toute suppression est réversible pendant 30 jours. Pas de stress.</p>
+      <span class="ico">🔑</span>
+      <h3>Garde ton code précieusement</h3>
+      <p>Ton code d'invitation est permanent. Note-le dans un endroit sûr : c'est ta clé pour revenir sur l'appli si tu es déconnecté.</p>
     </div>
     <div class="card">
       <span class="ico">⬇️</span>
@@ -820,29 +732,20 @@
     <div class="card">
       <span class="ico">👥</span>
       <h3>Rôle admin</h3>
-      <p>Un admin peut modifier un groupe, gérer les membres, changer les rôles et envoyer à chacun son lien personnel. Les membres normaux peuvent tout créer (morceaux, événements, tâches).</p>
-    </div>
-    <div class="card">
-      <span class="ico">🎵</span>
-      <h3>Tri alphabétique partout</h3>
-      <p>Les morceaux apparaissent toujours dans l'ordre alphabétique, avec accents et casse ignorés, dans toutes les vues et tous les dropdowns.</p>
+      <p>Un admin peut modifier un groupe, gérer les membres, changer les rôles et envoyer à chacun son code personnel. Les membres normaux peuvent tout créer (morceaux, événements, tâches).</p>
     </div>
   </div>
 
-  <!-- 15. FAQ -->
+  <!-- 14. FAQ -->
   <h2 id="faq">❓ Questions fréquentes</h2>
 
   <div class="card">
     <h3>Je ne vois pas ce que les autres ont écrit</h3>
-    <p>Vérifie que la synchro est bien configurée : en bas du menu, la pastille doit afficher <strong>● à jour</strong>. Si c'est <strong>○ hors ligne</strong>, clique sur ☁️ Synchro et vérifie l'URL Firebase + le code. Le plus simple : rouvre ton lien personnel.</p>
+    <p>Vérifie que la synchro est bien configurée : en bas du menu, la pastille doit afficher <strong>● à jour</strong>. Si c'est <strong>○ hors ligne</strong>, clique sur ☁️ Synchro et vérifie l'URL Firebase + le code de groupe.</p>
   </div>
   <div class="card">
-    <h3>L'appli me dit « Prénom non reconnu » ou « Code incorrect »</h3>
-    <p>« Code incorrect » : vérifie ton code, ou demande à un admin de le réinitialiser. « Prénom non reconnu » : vérifie l'orthographe. Si ça ne marche toujours pas, tu n'as pas encore été créé : demande à un admin de t'ajouter via <strong>+ Nouveau musicien</strong> dans l'onglet Membres d'un groupe.</p>
-  </div>
-  <div class="card">
-    <h3>Comment changer mon code ? J'ai oublié mon code</h3>
-    <p>Pour le changer : touche <strong>🔑</strong> en bas du menu, saisis ton code actuel, puis le nouveau (4 à 6 chiffres). Si tu l'as oublié, un admin peut le réinitialiser depuis l'onglet Membres. Ton ancien lien personnel ne fonctionnera alors plus, il t'en donnera un nouveau.</p>
+    <h3>J'ai perdu mon code</h3>
+    <p>Demande à un admin de t'en générer un nouveau : page <strong>🧑‍🎤 Musiciens</strong> ou onglet <strong>Membres</strong> d'un groupe → bouton <strong>Inviter</strong> sur ta fiche. Il te transmettra le code.</p>
   </div>
   <div class="card">
     <h3>Je ne vois pas un groupe, ou un musicien</h3>
@@ -850,19 +753,19 @@
   </div>
   <div class="card">
     <h3>Comment changer mon instrument selon les groupes ?</h3>
-    <p>Sur la page d'un groupe, onglet Membres, un admin peut préciser ton instrument spécifique à ce groupe (bouton <strong>Instrument</strong> sur ta carte). L'instrument par défaut (dans ✎ Modifier) reste utilisé pour les autres groupes.</p>
-  </div>
-  <div class="card">
-    <h3>J'ai supprimé un morceau par erreur, comment le récupérer ?</h3>
-    <p>Menu → <strong>🗑️ Corbeille</strong> → clique sur <strong>Restaurer</strong> à côté du morceau. Ses versions, ses tâches liées et ses notes privées sont restaurées en même temps. Tu as 30 jours pour le faire, après quoi la suppression devient définitive.</p>
+    <p>Sur la page d'un groupe, onglet Membres, un admin peut préciser ton instrument spécifique à ce groupe (bouton <strong>Instrument</strong> sur ta carte). L'instrument par défaut reste utilisé pour les autres groupes.</p>
   </div>
   <div class="card">
     <h3>Puis-je utiliser l'appli sur plusieurs appareils ?</h3>
-    <p>Oui. Chaque appareil garde sa propre session. Le plus simple : ouvre ton <strong>lien personnel</strong> sur chaque appareil, il contient tout (profil, code, synchro). Tes notes privées, elles, restent sur l'appareil où tu les as écrites.</p>
+    <p>Oui. Chaque appareil garde sa propre session. Le plus simple : tape ton <strong>code personnel</strong> sur chaque appareil — il est permanent. Tes notes privées, elles, restent sur l'appareil où tu les as écrites.</p>
+  </div>
+  <div class="card">
+    <h3>Que se passe-t-il si je supprime un morceau ?</h3>
+    <p>Le morceau disparaît du répertoire, ainsi que ses versions et ses tâches liées. Il est aussi retiré des setlists où il apparaissait. Action <strong>définitive</strong> : une confirmation est demandée avant.</p>
   </div>
   <div class="card">
     <h3>Que se passe-t-il si je supprime une version audio ?</h3>
-    <p>La version disparaît tout de suite (pas de corbeille pour les versions audio, pour ne pas surcharger le serveur) et le fichier est retiré du serveur. Action immédiate et définitive.</p>
+    <p>La version disparaît et le fichier audio est retiré du serveur. Action immédiate et définitive.</p>
   </div>
   <div class="card">
     <h3>Le métronome ne fait pas de son</h3>
