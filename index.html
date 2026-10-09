@@ -802,7 +802,8 @@ const songVersions = sid => data.songVersions.filter(v=>v.songId===sid);
 const commentsFor = (type,id) => data.comments.filter(c=>c.targetType===type && c.targetId===id)
   .sort((a,b)=>a.createdAt.localeCompare(b.createdAt));
 const tasksOf  = gid => data.tasks.filter(t=>t.groupId===gid);
-const songsOf  = gid => data.songs.filter(s=>s.groupId===gid);
+const songsOf  = gid => data.songs.filter(s=>s.groupId===gid)
+  .sort((a,b)=>(a.title||'').localeCompare(b.title||'','fr',{sensitivity:'base'}));
 const eventsOf = gid => data.events.filter(e=>e.groupId===gid);
 const myGroups = () => data.groups.filter(g => g.memberships.some(m=>m.userId===ui.currentUserId));
 const isAdmin  = (gid,uid_=ui.currentUserId) => {
