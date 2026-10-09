@@ -1,66 +1,48 @@
-const CACHE = 'pupitre-v4';
+const CACHE = 'pupitre-v2';   // ✅ incrémenté : force la mise à jour
 const ASSETS = [
   './',
+  './index.html',
+  './mode-emploi.html',
   './manifest.json',
-  './pupitre-icone-192.png',
-  './pupitre-icone-512.png',
-  './mode-emploi.html'
+  './pupitre-icone-192.png'
 ];
 
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS).catch(()=>{})));
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', e => {
+self.addEventListener('install', (e) => {
+  self.skipWaiting();   // prend la main immédiatement
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.open(CACHE).then(c => c.addAll(ASSETS).catch(()=>{}))
   );
 });
 
-self.addEventListener('message', e => {
+self.addEventListener('activate', (e) => {
+  e.waitUntil((async () => {
+    // Supprime tous les anciens caches (dont pupitre-v1)
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    await self.clients.claim();   // prend le contrôle des onglets ouverts
+  })());
+});
+
+self.addEventListener('message', (e) => {
   if(e.data && e.data.type === 'skipWaiting') self.skipWaiting();
 });
 
-self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
+self.addEventListener('fetch', (e) => {
+  const req = e.request;
+  if(req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if(url.origin !== location.origin) return;   // laisse passer Firebase, Supabase, CDN
 
-  // Ne pas toucher aux externes ni aux non-GET
-  if(url.origin !== location.origin) return;
-  if(e.request.method !== 'GET') return;
-
-  // index.html et la racine : TOUJOURS prendre le réseau
-  // (avec repli sur cache uniquement si hors ligne)
-  const isHtml = url.pathname.endsWith('/') ||
-                 url.pathname.endsWith('index.html') ||
-                 url.pathname.endsWith('.html');
-
-  if(isHtml){
-    e.respondWith(
-      fetch(e.request, {cache: 'no-store'})
-        .then(r => {
-          const copy = r.clone();
-          caches.open(CACHE).then(c => c.put(e.request, copy)).catch(()=>{});
-          return r;
-        })
-        .catch(() => caches.match(e.request))
-    );
-    return;
-  }
-
-  // Ressources statiques : cache d'abord, réseau en repli
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if(cached) return cached;
-      return fetch(e.request).then(r => {
-        if(r.ok){
-          const copy = r.clone();
-          caches.open(CACHE).then(c => c.put(e.request, copy)).catch(()=>{});
-        }
-        return r;
-      });
-    })
-  );
+  // Réseau d'abord, cache en secours (pour toujours avoir la dernière version)
+  e.respondWith((async () => {
+    try {
+      const fresh = await fetch(req, { cache: 'no-store' });
+      const cache = await caches.open(CACHE);
+      cache.put(req, fresh.clone()).catch(()=>{});
+      return fresh;
+    } catch(err) {
+      const cached = await caches.match(req);
+      return cached || Response.error();
+    }
+  })());
 });
