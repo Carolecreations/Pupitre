@@ -2390,8 +2390,8 @@ function renderTaskRow(t){
         ${t.due ? (assignees.length?' · ':'') + dueHtml(t) : ''}
       </div>
     </div>
-    <button class="btn ghost sm" data-edit-task="${t.id}" title="Modifier">✎</button>
-    <button class="btn ghost sm danger" data-delete-task="${t.id}" title="Supprimer">✕</button>
+       <button class="btn ghost sm" data-edit-task="${t.id}" title="Modifier">✎</button>
+    ${isAdmin(t.groupId)?`<button class="btn ghost sm danger" data-delete-task="${t.id}" title="Supprimer">✕</button>`:''}
   </div>`;
 }
 
@@ -2640,9 +2640,9 @@ ${versions.length ? `<div class="list">${versions.map(v=>{
       <div>${esc(v.notes||'')}${v.url && !hasUrl ? ` · <span class="muted small">${esc(v.url)}</span>` : ''}</div>
       <div class="meta">${esc(user(v.createdBy)?.name||'')} · ${esc(fmtRelative(v.createdAt))}</div>
     </div>
-    ${hasUrl ? `<button class="btn sm primary" data-play="${s.id}:${v.id}">▶ Écouter</button>` : ''}
+       ${hasUrl ? `<button class="btn sm primary" data-play="${s.id}:${v.id}">▶ Écouter</button>` : ''}
     <button class="btn ghost sm" data-edit-version="${v.id}" title="Modifier">✎</button>
-    <button class="btn ghost sm danger" data-delete-version="${v.id}" title="Supprimer">✕</button>
+    ${isAdmin(g.id)?`<button class="btn ghost sm danger" data-delete-version="${v.id}" title="Supprimer">✕</button>`:''}
   </div>`;
 }).join('')}</div>` : `<div class="empty">Aucune version.</div>`}
 
