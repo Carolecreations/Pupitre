@@ -10,7 +10,7 @@
   .box{max-width:480px;background:#171a21;border:1px solid #2a2f3a;
        border-radius:14px;padding:24px}
   h1{font-size:22px;margin:0 0 12px}
-  .ok{color:#10b981;font-weight:700;margin:16px 0}
+  .ok{color:#10b981;font-weight:700;margin:16px 0;line-height:1.7}
   a.btn{display:inline-block;background:#6366f1;color:#fff;padding:12px 22px;
         border-radius:10px;text-decoration:none;font-weight:600;margin-top:12px}
 </style>
@@ -36,13 +36,11 @@
       for(const k of keys){ await caches.delete(k); log.push('Cache supprimé : ' + k); }
       if(!keys.length) log.push('Aucun cache à vider');
     }
-    // Force un rechargement sans cache de l'appli
     log.push('Terminé. Clique sur le bouton ci-dessous.');
   }catch(e){ log.push('Erreur : ' + e.message); }
   document.getElementById('msg').textContent = 'Nettoyage terminé.';
   document.getElementById('result').innerHTML =
     '<div class="ok">✓ ' + log.join('<br>✓ ') + '</div>';
-  // Empêche le service worker d'intercepter la redirection
   document.getElementById('go').addEventListener('click', (e) => {
     e.preventDefault();
     location.replace('./?_=' + Date.now());
