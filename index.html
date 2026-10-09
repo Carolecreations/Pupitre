@@ -32,6 +32,16 @@
     border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;width:100%;
   }
   input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+    select option,
+  select optgroup{
+    background-color:#1e222b;
+    color:#e6e8ec;
+  }
+  select option:checked,
+  select option:hover{
+    background-color:#6366f1;
+    color:#ffffff;
+  }
   textarea{resize:vertical;min-height:80px}
   input[type=checkbox]{width:auto;flex-shrink:0;accent-color:var(--accent)}
   .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
