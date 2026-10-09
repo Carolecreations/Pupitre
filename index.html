@@ -3262,11 +3262,16 @@ function closeStage(){
     metro.playing = false;
     clearTimeout(metro.timer);
   }
+  if(stage && stage.scroll){
+    stage.scroll.playing = false;
+    clearInterval(stage.scroll.timer);
+  }
   stage = null; keepAwake(false); drawStage(); }
 function stageGo(n){
   if(!stage) return;
   const i = stage.i + n;
   if(i<0 || i>=stage.ids.length) return;
+  if(stage.scroll && stage.scroll.playing) scrollStop();
   stage.i = i;
   if(metro && metro.playing){
     metro.bpm = metroBpmFor(song(stage.ids[stage.i]));
