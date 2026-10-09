@@ -217,17 +217,29 @@ window.onerror=function(m,s,l,c){document.body.innerHTML='<pre style="color:#ff6
 
 /* ============ MODE TEST (développeur) ============ */
 const TEST_FLAG = 'pupitre-test-mode';
+const TEST_OBSERVE_FLAG = 'pupitre-test-observe';
 const TEST_VIEWAS_KEY = 'pupitre-test-viewas';
 const TEST_CODE = 'PUPITRE-TEST';
-const isTestMode = () => localStorage.getItem(TEST_FLAG) === '1';
+const isTestMode    = () => localStorage.getItem(TEST_FLAG) === '1';
+const isTestObserve = () => isTestMode() && localStorage.getItem(TEST_OBSERVE_FLAG) === '1';
 
 function enterTestMode(){
-  // Snapshot isolé à partir des données réelles si pas encore fait
   if(!localStorage.getItem('pupitre-v2-test')){
     const real = localStorage.getItem('pupitre-v2');
     localStorage.setItem('pupitre-v2-test', real || JSON.stringify(defaultData()));
   }
   localStorage.setItem(TEST_FLAG, '1');
+  localStorage.setItem(TEST_OBSERVE_FLAG, '0');   // démarre en solo (isolé)
+  location.reload();
+}
+function toggleTestObserve(){
+  const now = isTestObserve();
+  if(!now){
+    if(!confirm("Activer la synchro en LECTURE SEULE ?\n\nTu vas voir en direct tout ce que l'admin et les musiciens font.\nTes propres modifs ne partiront jamais vers eux, et seront écrasées à chaque cycle de synchro.\n\nIl faut que tu sois connecté (session Firebase active) sur cet appareil.")) return;
+  } else {
+    if(!confirm("Revenir en mode isolé (sans synchro) ?")) return;
+  }
+  localStorage.setItem(TEST_OBSERVE_FLAG, now ? '0' : '1');
   location.reload();
 }
 function exitTestMode(){
@@ -270,7 +282,6 @@ const FIREBASE_CONFIG = {
 };
 let fbAuth = null;
 let fbUser = undefined;
-if(!isTestMode()){
   try{
     if(typeof firebase !== 'undefined' && firebase.initializeApp){
       firebase.initializeApp(FIREBASE_CONFIG);
@@ -280,7 +291,7 @@ if(!isTestMode()){
         .catch(e => console.warn('setPersistence :', e));
     }
   }catch(e){ console.warn('Firebase init :', e); }
-}
+
 const APP_VERSION = '1.1.0';
 const SUPABASE_URL = 'https://ggbdsdupicfmpogmendp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_wW9OsvjI3RW63jMLpJtOvw_UzYk6Ift';
@@ -354,15 +365,14 @@ data.events.forEach(e=>{ e.checklist = (e.checklist||[]).map(c=> typeof c==='str
 const ME_KEY='pupitre-me', SYNC_KEY='pupitre-sync';
 const COLS=['users','groups','songs','songVersions','events','tasks','comments','reviews'];
 let sync=null;
-if(!isTestMode()){
-  try{ sync=JSON.parse(localStorage.getItem(SYNC_KEY)); }catch(e){}
-  (function(){
-    const m=location.hash.match(/room=([^&]+)&db=(.+)$/);
-    if(m){ sync={room:decodeURIComponent(m[1]), db:decodeURIComponent(m[2])};
-      localStorage.setItem(SYNC_KEY,JSON.stringify(sync));
-      history.replaceState(null,'',location.pathname+location.search); }
-  })();
-}
+try{ sync=JSON.parse(localStorage.getItem(SYNC_KEY)); }catch(e){}
+(function(){
+  const m=location.hash.match(/room=([^&]+)&db=(.+)$/);
+  if(m){ sync={room:decodeURIComponent(m[1]), db:decodeURIComponent(m[2])};
+    localStorage.setItem(SYNC_KEY,JSON.stringify(sync));
+    history.replaceState(null,'',location.pathname+location.search); }
+})();
+
 (function(){
   const mi=location.hash.match(/invite=([A-Za-z0-9-]+)/);
   if(mi){ localStorage.setItem('pupitre-invite-pending', mi[1].toUpperCase().replace(/[^A-Z0-9]/g,'')); history.replaceState(null,'',location.pathname+location.search); }
@@ -385,7 +395,11 @@ function save(){
       alert("Stockage de l'appareil plein. Fais une sauvegarde via Exporter, puis vide les données du site dans les réglages du navigateur.");
     }
   }
-  if(sync){ ver++; dirty=true; clearTimeout(tm); tm=setTimeout(syncTick,400); }
+    if(sync){
+    ver++;
+    if(!isTestObserve()) dirty = true;   // en observateur, on ne pousse jamais
+    clearTimeout(tm); tm=setTimeout(syncTick,400);
+  }
 }
 
 /* ✅ CORRECTION : techOf robuste */
@@ -497,14 +511,17 @@ function idle(){
   return !(a && (a.tagName==='TEXTAREA' || (a.tagName==='INPUT' && a.type!=='checkbox')) && a.value);
 }
 async function syncTick(){
-  if(isTestMode()) return;
+  if(isTestMode() && !isTestObserve()) return;   // solo : pas de synchro
   if(!sync||busy) return;
   if(fbAuth && fbUser===undefined){ setTimeout(syncTick,300); return; }
   if(fbAuth && !fbUser) return;
   busy=true; setStatus('sync');
   const T = await tok();
   try{
-    if(dirty){
+        if(dirty && isTestObserve()){
+      // ✅ Observateur : on n'écrit jamais. On note juste qu'on est propre.
+      dirty = false;
+    } else if(dirty){
       const v=ver, cur=snap(data), upd={};
       COLS.forEach(c=>{
         for(const id in cur[c]) if((last[c]||{})[id]!==cur[c][id]) upd[c+'/'+id]=JSON.parse(cur[c][id]);
@@ -4126,6 +4143,9 @@ setTimeout(()=>{ const sp = document.getElementById('splash'); if(sp){ sp.classL
     <div style="flex:1"></div>
     <button id="test-reset" style="background:rgba(0,0,0,.15);border:1px solid rgba(0,0,0,.3);color:#000;padding:4px 10px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">↺ Réinitialiser</button>
     <button id="test-wipe" style="background:rgba(0,0,0,.15);border:1px solid rgba(0,0,0,.3);color:#000;padding:4px 10px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">🗑️ Repartir à zéro</button>
+        <button id="test-observe" style="background:${isTestObserve()?'#000':'rgba(0,0,0,.15)'};color:${isTestObserve()?'#10b981':'#000'};border:1px solid rgba(0,0,0,.3);padding:4px 10px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">
+      ${isTestObserve() ? '📡 Observateur actif' : '📡 Activer synchro lecture'}
+    </button>
     <button id="test-exit" style="background:#000;color:#f59e0b;border:none;padding:4px 12px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">Quitter test</button>
   `;
   document.body.appendChild(b);
@@ -4136,6 +4156,7 @@ setTimeout(()=>{ const sp = document.getElementById('splash'); if(sp){ sp.classL
   };
   b.querySelector('#test-reset').onclick = resetTestData;
   b.querySelector('#test-wipe').onclick = wipeTestData;
+    b.querySelector('#test-observe').onclick = toggleTestObserve;
   b.querySelector('#test-exit').onclick = exitTestMode;
 })();
 </script>
