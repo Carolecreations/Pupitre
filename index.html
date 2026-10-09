@@ -734,16 +734,27 @@ const songsInProgress = () => data.songs.filter(s =>
 function render(){
   const root = $('#root');
   const splashUp = !!document.getElementById('splash');
-  if(fbAuth && (fbUser === undefined || identityPending)){
-    if(splashUp) return;
-    root.innerHTML = '<div class="login"><div class="login-card"><h1>Pupitre</h1><p>Connexion…</p></div></div>';
-    return;
-  }
-  if(fbAuth && !fbUser){ root.innerHTML = renderLogin(); bindLogin(); return; }
-  if(sync && !ready){
-    if(splashUp) return;
-    root.innerHTML='<div class="login"><div class="login-card"><h1>Pupitre</h1><p>Synchronisation…</p></div></div>';
-    return;
+
+  /* ✅ Mode test : on saute tous les contrôles Firebase et synchro */
+  if(isTestMode()){
+    if(!ui.currentUserId){
+      const targetId = localStorage.getItem(TEST_VIEWAS_KEY)
+        || data.users.find(u => data.groups.some(g => (g.memberships||[]).some(m => m.userId === u.id && m.role === 'admin')))?.id
+        || (data.users[0] && data.users[0].id);
+      if(targetId) ui.currentUserId = targetId;
+    }
+  } else {
+    if(fbAuth && (fbUser === undefined || identityPending)){
+      if(splashUp) return;
+      root.innerHTML = '<div class="login"><div class="login-card"><h1>Pupitre</h1><p>Connexion…</p></div></div>';
+      return;
+    }
+    if(fbAuth && !fbUser){ root.innerHTML = renderLogin(); bindLogin(); return; }
+    if(sync && !ready){
+      if(splashUp) return;
+      root.innerHTML='<div class="login"><div class="login-card"><h1>Pupitre</h1><p>Synchronisation…</p></div></div>';
+      return;
+    }
   }
   if(!ui.currentUserId){ root.innerHTML = renderLogin(); bindLogin(); return; }
   const content = (()=>{
