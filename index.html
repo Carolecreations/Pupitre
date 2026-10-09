@@ -3816,7 +3816,172 @@ if(sr && !sr.dataset.bound){
   });
 }
 }
+/* ============ NETTOYAGE DES MÉDIAS ORPHELINS ============ */
+async function scanAudioOrphans(){
+  if(!sync) return {error:"Active la synchro d'abord."};
+  const referenced = new Set();
+  data.songVersions.forEach(v => {
+    if(v.url && /supabase\.co/.test(v.url)){
+      const m = v.url.match(/\/object\/public\/audio\/(.+)$/);
+      if(m) referenced.add(decodeURIComponent(m[1]));
+    }
+  });
+  let files = [];
+  try{
+    const r = await fetch(SUPABASE_URL + '/storage/v1/object/list/audio', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ prefix: sync.room + '/', limit: 1000, offset: 0 })
+    });
+    if(!r.ok) throw new Error('statut ' + r.status);
+    files = await r.json();
+  }catch(e){
+    return {error:"Impossible de lister Supabase : " + (e.message||e)};
+  }
+  const orphans = [];
+  files.forEach(f => {
+    const full = sync.room + '/' + f.name;
+    if(!referenced.has(full)) orphans.push(full);
+  });
+  return {orphans, total: files.length, referenced: referenced.size};
+}
 
+async function scanImageOrphans(){
+  if(!sync) return {error:"Active la synchro d'abord."};
+  const referenced = new Set();
+  data.events.forEach(e => {
+    if(e.tech && e.tech.stageImg) referenced.add(e.tech.stageImg);
+  });
+  let imgs = {};
+  try{
+    const r = await fetch(withAuth(syncBase() + '/images.json', await tok()));
+    if(!r.ok) throw new Error('statut ' + r.status);
+    imgs = (await r.json()) || {};
+  }catch(e){
+    return {error:"Impossible de lister Firebase : " + (e.message||e)};
+  }
+  const orphans = [];
+  Object.keys(imgs).forEach(id => {
+    if(!referenced.has(id)) orphans.push(id);
+  });
+  return {orphans, total: Object.keys(imgs).length, referenced: referenced.size};
+}
+
+async function deleteAudioFile(path){
+  try{
+    const r = await fetch(SUPABASE_URL + '/storage/v1/object/audio/' + path, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY
+      }
+    });
+    return r.ok || r.status === 404;
+  }catch(e){ return false; }
+}
+
+async function deleteImageFile(id){
+  try{
+    const r = await fetch(withAuth(imgUrl(id), await tok()), {method:'DELETE'});
+    return r.ok || r.status === 404;
+  }catch(e){ return false; }
+}
+
+async function openCleanupModal(){
+  if(!sync){ alert("Active la synchro d'abord (menu ☁️ Synchro)."); return; }
+  if(!isRoomAdmin()){ alert("Réservé à l'administrateur."); return; }
+
+  const el = document.createElement('div');
+  el.className = 'modal-back';
+  el.innerHTML = `
+    <div class="modal" style="max-width:560px">
+      <div class="modal-header">
+        <h2>🧹 Nettoyage des médias</h2>
+        <button class="btn ghost sm" data-close-cleanup>✕</button>
+      </div>
+      <div class="modal-body" id="cleanup-body">
+        <p class="sub" style="margin:0">Scan en cours…</p>
+      </div>
+    </div>
+  `;
+  document.getElementById('modal-root').appendChild(el);
+
+  const close = () => { el.remove(); };
+  el.querySelector('[data-close-cleanup]').onclick = close;
+  el.onclick = (e) => { if(e.target === el) close(); };
+
+  const audio = await scanAudioOrphans();
+  const images = await scanImageOrphans();
+
+  const totalAudio = audio.orphans ? audio.orphans.length : 0;
+  const totalImg = images.orphans ? images.orphans.length : 0;
+  const grandTotal = totalAudio + totalImg;
+
+  if(audio.error || images.error){
+    document.getElementById('cleanup-body').innerHTML = `
+      <div class="small" style="color:var(--danger)">
+        ${audio.error ? '• ' + esc(audio.error) : ''}
+        ${images.error ? '<br>• ' + esc(images.error) : ''}
+      </div>`;
+    return;
+  }
+
+  if(grandTotal === 0){
+    document.getElementById('cleanup-body').innerHTML = `
+      <p class="small" style="color:var(--ok);margin:0">✓ Rien à nettoyer.</p>
+      <p class="sub" style="margin:8px 0 0">${audio.total} fichier(s) audio sur le serveur · ${images.total} image(s) dans Firebase<br>Tous sont bien rattachés à du contenu.</p>
+    `;
+    return;
+  }
+
+  document.getElementById('cleanup-body').innerHTML = `
+    <p class="small" style="margin:0 0 10px">
+      ${grandTotal} fichier(s) orphelin(s) détecté(s) — c'est-à-dire plus rattachés à aucun morceau ni événement.
+    </p>
+    <div class="card" style="margin:0 0 12px">
+      <div class="small" style="line-height:1.9">
+        <strong>🎵 Audio (Supabase)</strong> : ${totalAudio} à supprimer sur ${audio.total}<br>
+        <strong>🖼️ Images (Firebase)</strong> : ${totalImg} à supprimer sur ${images.total}
+      </div>
+    </div>
+    ${totalAudio ? `<details style="margin-bottom:10px"><summary class="small muted" style="cursor:pointer">Voir les fichiers audio</summary>
+      <div class="small muted" style="margin-top:8px;font-family:ui-monospace,monospace;font-size:11px;max-height:140px;overflow:auto">${audio.orphans.slice(0,50).map(esc).join('<br>')}${audio.orphans.length>50?'<br>…':''}</div>
+    </details>` : ''}
+    ${totalImg ? `<details style="margin-bottom:10px"><summary class="small muted" style="cursor:pointer">Voir les images</summary>
+      <div class="small muted" style="margin-top:8px;font-family:ui-monospace,monospace;font-size:11px;max-height:100px;overflow:auto">${images.orphans.map(esc).join('<br>')}</div>
+    </details>` : ''}
+    <p class="small muted" style="margin:0">Aucune donnée active n'est touchée : seuls les fichiers vraiment abandonnés sont supprimés.</p>
+    <div class="row" style="margin-top:14px;gap:8px">
+      <button class="btn primary" id="cleanup-go">Supprimer ces ${grandTotal} fichier(s)</button>
+      <button class="btn ghost" data-close-cleanup>Annuler</button>
+    </div>
+  `;
+
+  el.querySelectorAll('[data-close-cleanup]').forEach(b => b.onclick = close);
+
+  const go = el.querySelector('#cleanup-go');
+  go.onclick = async () => {
+    go.disabled = true;
+    go.textContent = 'Suppression en cours…';
+    let deletedAudio = 0, deletedImg = 0;
+    for(const path of audio.orphans){
+      if(await deleteAudioFile(path)) deletedAudio++;
+    }
+    for(const id of images.orphans){
+      if(await deleteImageFile(id)) deletedImg++;
+    }
+    document.getElementById('cleanup-body').innerHTML = `
+      <p class="small" style="color:var(--ok);margin:0">✓ Nettoyage terminé.</p>
+      <p class="sub" style="margin:8px 0 0">${deletedAudio} audio · ${deletedImg} image(s) supprimé(s).</p>
+      <div class="row" style="margin-top:14px"><button class="btn primary" data-close-cleanup>Fermer</button></div>
+    `;
+    el.querySelectorAll('[data-close-cleanup]').forEach(b => b.onclick = close);
+  };
+}
 function closeModal(){ $('#modal-root').innerHTML=''; }
 function openModal({title, body, onSubmit, submitLabel='Enregistrer'}){
   const root = $('#modal-root');
