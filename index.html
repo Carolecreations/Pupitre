@@ -804,7 +804,8 @@ const songVersions = sid => data.songVersions.filter(v=>v.songId===sid);
 const commentsFor = (type,id) => data.comments.filter(c=>c.targetType===type && c.targetId===id)
   .sort((a,b)=>a.createdAt.localeCompare(b.createdAt));
 const tasksOf  = gid => data.tasks.filter(t=>t.groupId===gid);
-const songsOf  = gid => data.songs.filter(s=>s.groupId===gid);
+const songsOf  = gid => data.songs.filter(s=>s.groupId===gid)
+  .sort((a,b)=>(a.title||'').localeCompare(b.title||'','fr',{sensitivity:'base'}));
 const eventsOf = gid => data.events.filter(e=>e.groupId===gid);
 const myGroups = () => data.groups.filter(g => g.memberships.some(m=>m.userId===ui.currentUserId));
 const isAdmin  = (gid,uid_=ui.currentUserId) => {
@@ -827,7 +828,7 @@ const upcomingEvents = () => {
 const songsInProgress = () => data.songs.filter(s =>
   myGroups().some(g=>g.id===s.groupId && gFilter(g)) &&
   !['pret','concert','archive'].includes(s.status)
-);
+).sort((a,b)=>(a.title||'').localeCompare(b.title||'','fr',{sensitivity:'base'}));
 
 function render(){
   const root = $('#root');
@@ -1620,16 +1621,13 @@ function renderMusicians(){
                 <button data-member-remove="${g.id}:${u.id}" title="Retirer de ce groupe" style="margin-left:4px;color:var(--muted)">✕</button></span>`;
             }).join('') : '<span class="muted small">Aucun groupe</span>'}
           </div>
-          <div class="row" style="gap:6px;flex-wrap:wrap">
-            ${isRoomAdmin()?`<button class="btn sm primary" data-member-invite="${u.id}">Inviter</button>`:''}
-            ${(isRoomAdmin() && joined[u.id] && u.id!==ui.currentUserId)?`<button class="btn sm" data-member-revoke="${u.id}">Retirer l'accès</button>`:''}
-            ${free.length?`<select data-musician-add="${u.id}" style="width:auto;padding:5px 8px;font-size:13px"><option value="">+ Groupe…</option>${free.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select>`:''}
-            ${u.id!==ui.currentUserId?`<button class="btn sm danger" data-user-delete="${u.id}">Supprimer</button>`:''}
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
-}
+         <div class="row" style="gap:6px;flex-wrap:wrap">
+  ${isRoomAdmin()?`<button class="btn sm primary" data-member-invite="${u.id}">Inviter</button>`:''}
+  ${(isRoomAdmin() && joined[u.id] && u.id!==ui.currentUserId)?`<button class="btn sm" data-member-revoke="${u.id}">Retirer l'accès</button>`:''}
+  <button class="btn sm" data-user-edit="${u.id}" title="Modifier nom, initiales, instruments, couleur">✎ Modifier</button>
+  ${free.length?`<select data-musician-add="${u.id}" style="width:auto;padding:5px 8px;font-size:13px"><option value="">+ Groupe…</option>${free.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select>`:''}
+  ${u.id!==ui.currentUserId?`<button class="btn sm danger" data-user-delete="${u.id}">Supprimer</button>`:''}
+</div>
 
 function renderGroups(){
   return `
@@ -2422,6 +2420,7 @@ function renderGroupMembers(g){
   <button class="btn sm" data-member-instrument="${g.id}:${u.id}">Instrument</button>
             ${isRoomAdmin()?`<button class="btn sm primary" data-member-invite="${u.id}">Inviter</button>`:''}
   <button class="btn sm" data-member-color="${u.id}">Couleur</button>
+  <button class="btn sm" data-user-edit="${u.id}">✎ Nom / défaut</button>
   <button class="btn sm" data-member-role="${g.id}:${u.id}">${m.role==='admin'?'Rendre membre':'Passer admin'}</button>
   <button class="btn sm danger" data-member-remove="${g.id}:${u.id}">Retirer</button>
   ${u.id!==ui.currentUserId?`<button class="btn sm danger" data-user-delete="${u.id}">Supprimer le musicien</button>`:''}
@@ -2599,20 +2598,25 @@ function renderSong(){
       <button class="btn ghost sm" data-edit-song="${s.id}">Modifier</button>
       <button class="btn ghost sm danger" data-delete-song="${s.id}">Supprimer</button>
     </div>
-    <p class="sub">
+       <p class="sub">
       <span class="group-dot" style="background:${g.color};display:inline-block;vertical-align:middle"></span>
-      ${esc(g.name)} ${s.key?' · '+esc(s.key):''} ${s.bpm?' · '+s.bpm+' BPM':''}
+      ${esc(g.name)} ${s.bpm?' · '+s.bpm+' BPM':''}
     </p>
 
     <div class="grid cols-2" style="margin-top:20px">
       <div class="card">
-        <h3>Structure</h3>
-        <div class="small" style="white-space:pre-wrap">${esc(s.structure||'—')}</div>
+        <h3>Tonalité</h3>
+        <div class="small mono" style="white-space:pre-wrap">${esc(s.key||'—')}</div>
       </div>
       <div class="card">
         <h3>Accords</h3>
         <div class="small mono" style="white-space:pre-wrap">${esc(s.chords||'—')}</div>
       </div>
+    </div>
+
+    <div class="card">
+      <h3>Structure</h3>
+      <div class="small" style="white-space:pre-wrap">${esc(s.structure||'—')}</div>
     </div>
 
     <div class="card">
@@ -3565,6 +3569,20 @@ $$('[data-member-instrument]').forEach(b=>b.addEventListener('click',()=>{
   }));
   $$('[data-new-user]').forEach(b=>b.addEventListener('click',()=>openUserModal(b.dataset.newUser)));
   $$('[data-user-delete]').forEach(b=>b.addEventListener('click',()=>deleteUser(b.dataset.userDelete)));
+  // Modifier un musicien (nom, initiales, instruments par défaut, couleur)
+$$('[data-user-edit]').forEach(b=>b.addEventListener('click',()=>openUserEditModal(b.dataset.userEdit)));
+
+// Ajouter un musicien existant à un autre groupe (page Musiciens)
+$$('[data-musician-add]').forEach(sel=>sel.addEventListener('change',()=>{
+  const userId = sel.dataset.musicianAdd;
+  const gid = sel.value;
+  if(!gid || !userId) return;
+  const g = group(gid);
+  if(g && !g.memberships.some(m=>m.userId===userId)){
+    g.memberships.push({userId, role:'member'});
+    save(); render();
+  }
+}));
   $$('[data-open-group]').forEach(b=>b.addEventListener('click',()=>openGroup(b.dataset.openGroup)));
   $$('[data-open-song]').forEach(b=>b.addEventListener('click',e=>{
     e.stopPropagation(); openSong(b.dataset.openSong);
@@ -3878,6 +3896,42 @@ function openGroupModal(gid){
 }
 
 function openUserModal(gid){
+function openUserEditModal(userId){
+  const u = user(userId); if(!u) return;
+  // pré-calcul des initiales par défaut si vide
+  const autoIni = (u.name||'').split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  openModal({
+    title:'Modifier '+u.name,
+    body:`
+      <div class="field"><label>Prénom / nom</label>
+        <input name="name" required value="${esc(u.name)}"></div>
+      <div class="field"><label>Initiales (2 lettres)</label>
+        <input name="initials" maxlength="3" value="${esc(u.initials||autoIni)}"
+               style="text-transform:uppercase"></div>
+      <div class="field"><label>Instruments (par défaut, tous groupes)</label>
+        <input name="instruments" value="${esc(u.instruments||'')}"
+               placeholder="Compo, guitare, machines, chant…"></div>
+      <div class="field"><label>Couleur</label>
+        <input type="color" name="color" value="${u.color||'#6366f1'}" style="height:40px"></div>
+      <p class="sub" style="margin:0">
+        💡 Pour un instrument <strong>différent selon le groupe</strong> :
+        ouvre le groupe → onglet <em>Membres</em> → bouton « Instrument »
+        sur la fiche du musicien. Sinon, l'instrument par défaut ci‑dessus sera utilisé.
+      </p>
+    `,
+    onSubmit: fd=>{
+      const t = data.users.find(x=>x.id===userId); if(!t) return;
+      const name = (fd.name||'').trim(); if(!name) return;
+      t.name = name;
+      const ini = (fd.initials||'').trim().toUpperCase();
+      t.initials = ini || name.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase()
+                          || name.slice(0,2).toUpperCase();
+      t.instruments = (fd.instruments||'').trim();
+      t.color = fd.color;
+      save(); render();
+    }
+  });
+}
   const palette = ['#6366f1','#ec4899','#f59e0b','#10b981','#06b6d4','#ef4444','#8b5cf6'];
   openModal({
     title:'Nouveau musicien',
