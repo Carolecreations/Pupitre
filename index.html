@@ -215,6 +215,37 @@ if('serviceWorker' in navigator){
 <script>
 window.onerror=function(m,s,l,c){document.body.innerHTML='<pre style="color:#ff6b6b;padding:24px;font:14px monospace;white-space:pre-wrap;background:#111">ERREUR JS\n'+m+'\nLigne '+l+':'+c+'</pre>';};
 
+/* ============ MODE TEST (développeur) ============ */
+const TEST_FLAG = 'pupitre-test-mode';
+const TEST_VIEWAS_KEY = 'pupitre-test-viewas';
+const TEST_CODE = 'PUPITRE-TEST';
+const isTestMode = () => localStorage.getItem(TEST_FLAG) === '1';
+
+function enterTestMode(){
+  // Snapshot isolé à partir des données réelles si pas encore fait
+  if(!localStorage.getItem('pupitre-v2-test')){
+    const real = localStorage.getItem('pupitre-v2');
+    localStorage.setItem('pupitre-v2-test', real || JSON.stringify(defaultData()));
+  }
+  localStorage.setItem(TEST_FLAG, '1');
+  location.reload();
+}
+function exitTestMode(){
+  localStorage.removeItem(TEST_FLAG);
+  localStorage.removeItem(TEST_VIEWAS_KEY);
+  location.reload();
+}
+function resetTestData(){
+  if(!confirm("Réinitialiser les données du mode test avec une copie des données actuelles ?\n\nTes modifs de test seront perdues.")) return;
+  const real = localStorage.getItem('pupitre-v2');
+  localStorage.setItem('pupitre-v2-test', real || JSON.stringify(defaultData()));
+  location.reload();
+}
+function wipeTestData(){
+  if(!confirm("Vider le mode test et repartir des données par défaut ?")) return;
+  localStorage.removeItem('pupitre-v2-test');
+  location.reload();
+}
 const SONG_STATUSES = [
   {id:'idee',      label:'Idée',        color:'#6b7280'},
   {id:'ecriture',  label:'Écriture',    color:'#3b82f6'},
@@ -226,7 +257,8 @@ const SONG_STATUSES = [
   {id:'archive',   label:'Archivé',     color:'#4b5563'},
 ];
 
-const KEY = 'pupitre-v2';
+const KEY = isTestMode() ? 'pupitre-v2-test' : 'pupitre-v2';
+
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDV35LT0CHsL2lVE3rTNaP82cnG3CYCD28",
   authDomain: "pupitre66.firebaseapp.com",
@@ -238,15 +270,17 @@ const FIREBASE_CONFIG = {
 };
 let fbAuth = null;
 let fbUser = undefined;
-try{
-  if(typeof firebase !== 'undefined' && firebase.initializeApp){
-    firebase.initializeApp(FIREBASE_CONFIG);
-    fbAuth = firebase.auth();
-    fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-      .then(() => console.log('Persistance Firebase : LOCAL'))
-      .catch(e => console.warn('setPersistence :', e));
-  }
-}catch(e){ console.warn('Firebase init :', e); }
+if(!isTestMode()){
+  try{
+    if(typeof firebase !== 'undefined' && firebase.initializeApp){
+      firebase.initializeApp(FIREBASE_CONFIG);
+      fbAuth = firebase.auth();
+      fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+        .then(() => console.log('Persistance Firebase : LOCAL'))
+        .catch(e => console.warn('setPersistence :', e));
+    }
+  }catch(e){ console.warn('Firebase init :', e); }
+}
 const APP_VERSION = '1.1.0';
 const SUPABASE_URL = 'https://ggbdsdupicfmpogmendp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_wW9OsvjI3RW63jMLpJtOvw_UzYk6Ift';
@@ -320,11 +354,15 @@ data.events.forEach(e=>{ e.checklist = (e.checklist||[]).map(c=> typeof c==='str
 const ME_KEY='pupitre-me', SYNC_KEY='pupitre-sync';
 const COLS=['users','groups','songs','songVersions','events','tasks','comments','reviews'];
 let sync=null;
-try{ sync=JSON.parse(localStorage.getItem(SYNC_KEY)); }catch(e){}
-(function(){
-  const m=location.hash.match(/room=([^&]+)&db=(.+)$/);
-  if(m){ sync={room:decodeURIComponent(m[1]), db:decodeURIComponent(m[2])}; localStorage.setItem(SYNC_KEY,JSON.stringify(sync)); history.replaceState(null,'',location.pathname+location.search); }
-})();
+if(!isTestMode()){
+  try{ sync=JSON.parse(localStorage.getItem(SYNC_KEY)); }catch(e){}
+  (function(){
+    const m=location.hash.match(/room=([^&]+)&db=(.+)$/);
+    if(m){ sync={room:decodeURIComponent(m[1]), db:decodeURIComponent(m[2])};
+      localStorage.setItem(SYNC_KEY,JSON.stringify(sync));
+      history.replaceState(null,'',location.pathname+location.search); }
+  })();
+}
 (function(){
   const mi=location.hash.match(/invite=([A-Za-z0-9-]+)/);
   if(mi){ localStorage.setItem('pupitre-invite-pending', mi[1].toUpperCase().replace(/[^A-Z0-9]/g,'')); history.replaceState(null,'',location.pathname+location.search); }
@@ -459,6 +497,7 @@ function idle(){
   return !(a && (a.tagName==='TEXTAREA' || (a.tagName==='INPUT' && a.type!=='checkbox')) && a.value);
 }
 async function syncTick(){
+  if(isTestMode()) return;
   if(!sync||busy) return;
   if(fbAuth && fbUser===undefined){ setTimeout(syncTick,300); return; }
   if(fbAuth && !fbUser) return;
@@ -956,7 +995,12 @@ function bindLogin(){
   }
   const code = $('#login-code'), go = $('#login-go');
   if(!go) return;
-  const enter = async () => {
+    const enter = async () => {
+    const v = (code.value || '').trim();
+    if(v.toUpperCase().replace(/[^A-Z]/g,'') === TEST_CODE.replace(/[^A-Z]/g,'')){
+      enterTestMode();
+      return;
+    }
     ui.loginMsg = '';
     go.disabled = true; go.textContent = 'Connexion…';
     const res = await claimInvite(code.value);
@@ -3921,7 +3965,18 @@ normalize();
 applyPending();
 if(dedupeUsers()) save();
 if(stripPins()) save();
-if(sync){
+
+if(isTestMode()){
+  // Choisir un utilisateur admin par défaut (ou celui sélectionné dans le bandeau)
+  sync = null;   // pas de synchro en mode test
+  const targetId = localStorage.getItem(TEST_VIEWAS_KEY)
+    || data.users.find(u => data.groups.some(g => (g.memberships||[]).some(m => m.userId === u.id && m.role === 'admin')))?.id
+    || (data.users[0] && data.users[0].id);
+  if(targetId && user(targetId)) ui.currentUserId = targetId;
+  // Splash masqué immédiatement
+  const sp = document.getElementById('splash');
+  if(sp) sp.remove();
+} else if(sync){
   syncTick(); setInterval(syncTick,5000);
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden) syncTick(); });
 }
@@ -4050,6 +4105,39 @@ function playSplashSound(){
 playSplashSound();
 setTimeout(()=>{ const nw = document.getElementById('noteWrap'); if(nw) nw.classList.add('soft'); }, 2000);
 setTimeout(()=>{ const sp = document.getElementById('splash'); if(sp){ sp.classList.add('hide'); sp.remove(); } }, 5300);
+/* Bandeau mode test */
+(function injectTestBanner(){
+  if(!isTestMode()) return;
+  if(document.getElementById('test-banner')) return;
+  const b = document.createElement('div');
+  b.id = 'test-banner';
+  b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#f59e0b,#f97316);color:#000;padding:8px 12px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.3);flex-wrap:wrap';
+  const userOptions = data.users.map(u =>
+    `<option value="${u.id}" ${u.id===ui.currentUserId?'selected':''}>${esc(u.name)}</option>`
+  ).join('');
+  b.innerHTML = `
+    <span style="font-size:16px">🧪</span>
+    <strong>MODE TEST</strong>
+    <span style="opacity:.6">·</span>
+    <span>Voir en tant que</span>
+    <select id="test-viewas" style="background:rgba(0,0,0,.12);border:1px solid rgba(0,0,0,.3);color:#000;padding:2px 6px;border-radius:4px;font-weight:600;font-size:12px;width:auto">
+      ${userOptions}
+    </select>
+    <div style="flex:1"></div>
+    <button id="test-reset" style="background:rgba(0,0,0,.15);border:1px solid rgba(0,0,0,.3);color:#000;padding:4px 10px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">↺ Réinitialiser</button>
+    <button id="test-wipe" style="background:rgba(0,0,0,.15);border:1px solid rgba(0,0,0,.3);color:#000;padding:4px 10px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">🗑️ Repartir à zéro</button>
+    <button id="test-exit" style="background:#000;color:#f59e0b;border:none;padding:4px 12px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">Quitter test</button>
+  `;
+  document.body.appendChild(b);
+  document.body.style.paddingTop = '48px';
+  b.querySelector('#test-viewas').onchange = (e) => {
+    localStorage.setItem(TEST_VIEWAS_KEY, e.target.value);
+    location.reload();
+  };
+  b.querySelector('#test-reset').onclick = resetTestData;
+  b.querySelector('#test-wipe').onclick = wipeTestData;
+  b.querySelector('#test-exit').onclick = exitTestMode;
+})();
 </script>
 
 </body>
