@@ -4003,15 +4003,24 @@ if(dedupeUsers()) save();
 if(stripPins()) save();
 
 if(isTestMode()){
-  // Choisir un utilisateur admin par défaut (ou celui sélectionné dans le bandeau)
-  sync = null;   // pas de synchro en mode test
   const targetId = localStorage.getItem(TEST_VIEWAS_KEY)
     || data.users.find(u => data.groups.some(g => (g.memberships||[]).some(m => m.userId === u.id && m.role === 'admin')))?.id
     || (data.users[0] && data.users[0].id);
   if(targetId && user(targetId)) ui.currentUserId = targetId;
-  // Splash masqué immédiatement
   const sp = document.getElementById('splash');
   if(sp) sp.remove();
+
+  if(isTestObserve()){
+    /* ✅ Observateur : on garde la synchro Firebase en lecture */
+    if(sync){
+      syncTick();
+      setInterval(syncTick,5000);
+      document.addEventListener('visibilitychange',()=>{ if(!document.hidden) syncTick(); });
+    }
+  } else {
+    /* ✅ Solo : pas de synchro du tout */
+    sync = null;
+  }
 } else if(sync){
   syncTick(); setInterval(syncTick,5000);
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden) syncTick(); });
@@ -4021,7 +4030,7 @@ if(fbAuth){
     .catch(()=>{})
     .then(() => {
   fbAuth.onAuthStateChanged(async u => {
-     if(isTestMode()) return;   // ✅ Mode test : on ignore Firebase
+       if(isTestMode() && !isTestObserve()) return;   // ignore Firebase en solo seulement
     fbUser = u;
     if(!u){
       identityPending = false; myMember = null; ui.currentUserId = null; fin = {}; finState = 'idle';
