@@ -4491,14 +4491,13 @@ function shareIcs(){
 function openIcsModal(list){
   if(!list.length){ alert('Aucun événement à exporter.'); return; }
   window._pupIcs = icsBuild(list);
-  const href = 'data:text/calendar;charset=utf-8,'+encodeURIComponent(window._pupIcs);
   openModal({
     title:'Export vers l\'agenda',
     submitLabel:'Fermer',
     body:`<p class="sub" style="margin:0">${list.length} événement${list.length>1?'s':''} prêt${list.length>1?'s':''} à ajouter à l'agenda de l'appareil.</p>
-      <a class="btn primary" href="${href}" target="_blank" rel="noopener">📅 Ouvrir dans l'agenda</a>
+      <button type="button" class="btn primary" onclick="downloadIcs()">📅 Télécharger le fichier .ics</button>
       <button type="button" class="btn" onclick="shareIcs()">📤 Partager / Enregistrer le fichier .ics</button>
-      <p class="sub" style="margin:0">Les événements sont une copie à la date d'aujourd'hui : en cas de changement dans Pupitre, refais l'export. Les événements déjà ajoutés sont mis à jour, pas dupliqués.</p>`,
+      <p class="sub" style="margin:0">Sur téléphone : le bouton Partager ouvre le menu natif — choisis ton agenda. Sur ordinateur : le téléchargement ouvre le fichier automatiquement dans ton calendrier.</p>`,
     onSubmit: ()=>{}
   });
 }
