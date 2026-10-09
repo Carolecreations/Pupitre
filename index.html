@@ -3353,14 +3353,14 @@ function scrollChange(d){
   el.innerHTML = `
     <div style="position:fixed;inset:0;z-index:300;background:#000;color:#fff;display:flex;flex-direction:column;
       padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)">
-           <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #2a2f3a;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #2a2f3a;flex-wrap:wrap">
         <button onclick="closeStage()" ${bt}>✕</button>
-<button onclick="metroToggle()" ${bt} style="background:${metro && metro.playing ? '#6366f1' : '#171a21'};border-color:${metro && metro.playing ? '#6366f1' : '#2a2f3a'}">🥁${metro && metro.playing ? ' ' + metro.bpm : ''}</button>
+        <button onclick="metroToggle()" style="border:1px solid ${metro && metro.playing ? '#6366f1' : '#2a2f3a'};background:${metro && metro.playing ? '#6366f1' : '#171a21'};color:#fff;border-radius:10px;padding:12px 18px;font-size:18px">🥁${metro && metro.playing ? ' ' + metro.bpm : ''}</button>
 ${metro && metro.playing ? `
   <button onclick="metroBpmChange(-2)" ${bt} style="padding:12px 14px">−</button>
   <button onclick="metroBpmChange(2)" ${bt} style="padding:12px 14px">+</button>
 ` : ''}
-<button onclick="scrollToggle()" ${bt} style="background:${stage.scroll.playing ? '#10b981' : '#171a21'};border-color:${stage.scroll.playing ? '#10b981' : '#2a2f3a'}">📜${stage.scroll.playing ? '' : ''}</button>
+        <button onclick="scrollToggle()" style="border:1px solid ${stage.scroll.playing ? '#10b981' : '#2a2f3a'};background:${stage.scroll.playing ? '#10b981' : '#171a21'};color:#fff;border-radius:10px;padding:12px 18px;font-size:18px">📜</button>
 ${stage.scroll.playing ? `
   <button onclick="scrollChange(-5)" ${bt} style="padding:12px 14px">−</button>
   <button onclick="scrollChange(5)" ${bt} style="padding:12px 14px">+</button>
