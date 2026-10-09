@@ -517,20 +517,29 @@ function save(){
   if(sync){ ver++; dirty=true; clearTimeout(tm); tm=setTimeout(syncTick,400); }
 }
 function normalize(){
-  data.events.forEach(e=>{
-    e.setlist=e.setlist||[];
-    e.availability=e.availability||{};
-    e.checklist=(e.checklist||[]).map(c=>typeof c==='string'?{t:c,done:false}:c);
-    e.journal = e.journal || [];
+  const toArr = x => Array.isArray(x) ? x : (x && typeof x === 'object' ? Object.values(x) : []);
+  const toObj = x => (x && typeof x === 'object' && !Array.isArray(x)) ? x : {};
+
+  (data.events || []).forEach(e=>{
+    e.setlist = toArr(e.setlist);
+    e.availability = toObj(e.availability);
+    e.checklist = toArr(e.checklist).map(c=>typeof c==='string'?{t:c,done:false}:c);
+    e.journal = toArr(e.journal);
   });
-  data.groups.forEach(g=>{
-    g.memberships=(g.memberships||[]).map(m=>({instrument:'', ...m}));
-    g.locations=g.locations||[];
+  (data.groups || []).forEach(g=>{
+    g.memberships = toArr(g.memberships).map(m=>({instrument:'', ...m}));
+    g.locations = toArr(g.locations);
   });
-  data.tasks.forEach(t=>{
-    if(typeof t.assignedTo === 'string') t.assignedTo = t.assignedTo ? [t.assignedTo] : [];
-    else if(!Array.isArray(t.assignedTo)) t.assignedTo = [];
+  (data.tasks || []).forEach(t=>{
+    t.assignedTo = toArr(t.assignedTo).filter(Boolean);
   });
+  (data.songs || []).forEach(s=>{
+    s.parts = toObj(s.parts);
+  });
+  (data.reviews || []).forEach(r=>{
+    r.songs = toArr(r.songs);
+  });
+
   if(!Array.isArray(data.eventTypes) || !data.eventTypes.length){
     data.eventTypes = [
       {id:'repetition', label:'Répétition', icon:'🎸'},
