@@ -516,7 +516,8 @@ try{ sync=JSON.parse(localStorage.getItem(SYNC_KEY)); }catch(e){}
 let ver=0, dirty=false, busy=false, ready=false, last={}, tm=null, syncState='none', pendingRender=false;
 function save(){
   localStorage.setItem(KEY, JSON.stringify(data));
-  if(sync){ ver++; dirty=true; clearTimeout(tm); tm=setTimeout(syncTick,400); }
+  /* MODE TESTEUR : on ne pousse jamais vers Firebase */
+  if(sync){ clearTimeout(tm); tm=setTimeout(syncTick,400); }
 }
 function normalize(){
   data.events.forEach(e=>{
