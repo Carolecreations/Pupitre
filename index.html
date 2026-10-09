@@ -4450,7 +4450,15 @@ function icsBuild(list){
     if(e.notes) desc.push(e.notes);
     const sl = (e.setlist||[]).map(id=>song(id)).filter(Boolean).map(x=>x.title);
     if(sl.length) desc.push((e.type==='repetition' ? 'À travailler : ' : 'Setlist : ')+sl.join(', '));
-    if(desc.length) L.push(icsFold('DESCRIPTION:'+icsEsc(desc.join('\n'))));
+        if(desc.length) L.push(icsFold('DESCRIPTION:'+icsEsc(desc.join('\n'))));
+    /* Rappels : la veille + 2h avant (uniquement si l'événement a une heure) */
+    if(s!==null){
+      L.push('BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc(g.name+' — '+t.label+' demain'),'TRIGGER:-P1D','END:VALARM');
+      L.push('BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc(g.name+' — '+t.label+' dans 2 heures'),'TRIGGER:-PT2H','END:VALARM');
+    } else {
+      /* Événement "journée entière" : un seul rappel la veille */
+      L.push('BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc(g.name+' — '+t.label+' demain'),'TRIGGER:-P1D','END:VALARM');
+    }
     L.push('END:VEVENT');
   });
   L.push('END:VCALENDAR');
