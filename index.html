@@ -923,7 +923,6 @@ async function claimInvite_(raw){
   let u; try{ u = await ensureSignedIn(); }catch(e){ return {err: authErrMsg(e) || 'Connexion impossible.'}; }
   const t = await u.getIdToken();
   let r;
-  try{ r = await fetch(withAuth(DB_URL + '/invites/' + code + '.json', t)); }
   catch(e){ return {err:'Pas de connexion internet.'}; }
   if(!r.ok) return {err:'Accès à la base refusé (' + r.status + ').'};
   const inv = await r.json();
