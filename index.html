@@ -2713,9 +2713,9 @@ const slEmpty = isRep ? 'Aucun morceau à travailler en priorité.' : 'Aucun mor
       <span style="font-size:26px">${t.icon}</span>
       <h1 style="margin:0">${esc(t.label)}</h1>
       <div class="spacer"></div>
-            <button class="btn ghost sm" data-ics-event="${e.id}">📅 Agenda</button>
+                        <button class="btn ghost sm" data-ics-event="${e.id}">📅 Agenda</button>
       <button class="btn ghost sm" data-edit-event="${e.id}">Modifier</button>
-      <button class="btn ghost sm danger" data-delete-event="${e.id}">Supprimer</button>
+      ${isAdmin(e.groupId)?`<button class="btn ghost sm danger" data-delete-event="${e.id}">Supprimer</button>`:''}
     </div>
     <p class="sub">${esc(fmtDate(e.date))} · ${esc(e.start||'')}${e.end?'–'+esc(e.end):''} ${e.location?'· '+esc(e.location):''}</p>
         ${conflictBanner(e)}
