@@ -338,7 +338,41 @@ if('serviceWorker' in navigator){
 </div>
 <div id="root"></div>
 <div id="modal-root"></div>
+<!-- Bandeau mode testeur -->
+<div id="testeur-banner" style="position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#f59e0b,#f97316);color:#000;padding:8px 12px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.3);flex-wrap:wrap">
+  <span style="font-size:16px">🧪</span>
+  <strong>MODE TESTEUR</strong>
+  <span style="opacity:.6">·</span>
+  <span>Voir en tant que</span>
+  <select id="testeur-who" style="background:rgba(0,0,0,.12);border:1px solid rgba(0,0,0,.3);color:#000;padding:2px 6px;border-radius:4px;font-weight:600;font-size:12px;width:auto"></select>
+  <div style="flex:1"></div>
+  <span style="opacity:.7;font-weight:500">🔒 Lecture seule — rien n'est envoyé</span>
+  <a href="./index.html" style="background:#000;color:#f59e0b;padding:4px 12px;border-radius:6px;font-weight:700;font-size:12px;text-decoration:none">Sortir</a>
+</div>
+<style>body{padding-top:44px !important}</style>
 
+<script>
+/* Sélecteur "Voir en tant que" + init */
+(function(){
+  const sel = document.getElementById('testeur-who');
+  const savedId = localStorage.getItem('pupitre-me');
+  const render = () => {
+    sel.innerHTML = (data.users||[]).map(u =>
+      `<option value="${u.id}" ${u.id===ui.currentUserId?'selected':''}>${esc(u.name)}${u.id===savedId?' (toi)':''}</option>`
+    ).join('');
+  };
+  const wait = setInterval(() => {
+    if(typeof data !== 'undefined' && typeof ui !== 'undefined' && data.users && ui.currentUserId){
+      clearInterval(wait);
+      render();
+      sel.addEventListener('change', () => {
+        ui.currentUserId = sel.value;
+        render();
+      });
+    }
+  }, 200);
+})();
+</script>
 <script>
 window.onerror=function(m,s,l,c){document.body.innerHTML='<pre style="color:#ff6b6b;padding:24px;font:14px monospace;white-space:pre-wrap;background:#111">ERREUR JS\n'+m+'\nLigne '+l+':'+c+'</pre>';};
 /* ============================================================
