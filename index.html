@@ -3251,7 +3251,9 @@ function openStage(eid){
   if(!ids.length){ alert('La setlist est vide.'); return; }
   let size = 22;
   try{ size = +localStorage.getItem('pupitre-stage-size') || 22; }catch(x){}
-  stage = {eid, ids, i:0, size};
+  let speed = 30;
+  try{ speed = +localStorage.getItem('pupitre-scroll-speed') || 30; }catch(x){}
+  stage = {eid, ids, i:0, size, scroll:{playing:false, speed, timer:null}};
   keepAwake(true);
   drawStage();
 }
