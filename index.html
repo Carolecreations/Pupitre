@@ -1073,15 +1073,17 @@ function renderShell(content){
         <button class="nav-item ${ui.view==='trash'?'active':''}" data-nav="trash"><span>🗑️</span> Corbeille</button>
         <a class="nav-item" href="./mode-emploi.html" target="_blank" style="text-decoration:none"><span>📖</span> Mode d'emploi</a>
       </div>
-      <div class="nav-sep">Groupes</div>
+           <div class="nav-sep">Groupes</div>
       <div class="nav">
-        ${groups.map(g=>{
-          const active = (ui.view==='group' && ui.groupId===g.id);
-          return `<button class="group-item ${active?'active':''}" data-goto-group="${g.id}">
-            <span class="group-dot" style="background:${g.color}"></span>
-            <span>${esc(g.name)}</span>
-          </button>`;
-        }).join('')}
+        ${groups
+          .filter(g => isTestMode() || !/zone de test/i.test(g.name))
+          .map(g=>{
+            const active = (ui.view==='group' && ui.groupId===g.id);
+            return `<button class="group-item ${active?'active':''}" data-goto-group="${g.id}">
+              <span class="group-dot" style="background:${g.color}"></span>
+              <span>${esc(g.name)}</span>
+            </button>`;
+          }).join('')}
       </div>
       <div class="user-box">
         <button data-user-color title="Changer ma couleur" style="border:none;background:none;padding:0">
