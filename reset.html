@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reset Pupitre</title>
+<style>
+  body{font-family:-apple-system,sans-serif;background:#0f1115;color:#e6e8ec;
+       display:grid;place-items:center;min-height:100vh;margin:0;padding:24px;text-align:center}
+  .box{max-width:480px;background:#171a21;border:1px solid #2a2f3a;
+       border-radius:14px;padding:24px}
+  h1{font-size:22px;margin:0 0 12px}
+  .ok{color:#10b981;font-weight:700;margin:16px 0}
+  a.btn{display:inline-block;background:#6366f1;color:#fff;padding:12px 22px;
+        border-radius:10px;text-decoration:none;font-weight:600;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>🧹 Reset Pupitre</h1>
+  <p id="msg">Nettoyage en cours…</p>
+  <div id="result"></div>
+  <a class="btn" href="./" id="go">Ouvrir Pupitre</a>
+</div>
+<script>
+(async () => {
+  const log = [];
+  try{
+    if('serviceWorker' in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for(const r of regs){ await r.unregister(); log.push('Service worker désinscrit'); }
+      if(!regs.length) log.push('Aucun service worker à désinscrire');
+    }
+    if('caches' in window){
+      const keys = await caches.keys();
+      for(const k of keys){ await caches.delete(k); log.push('Cache supprimé : ' + k); }
+      if(!keys.length) log.push('Aucun cache à vider');
+    }
+    // Force un rechargement sans cache de l'appli
+    log.push('Terminé. Clique sur le bouton ci-dessous.');
+  }catch(e){ log.push('Erreur : ' + e.message); }
+  document.getElementById('msg').textContent = 'Nettoyage terminé.';
+  document.getElementById('result').innerHTML =
+    '<div class="ok">✓ ' + log.join('<br>✓ ') + '</div>';
+  // Empêche le service worker d'intercepter la redirection
+  document.getElementById('go').addEventListener('click', (e) => {
+    e.preventDefault();
+    location.replace('./?_=' + Date.now());
+  });
+})();
+</script>
+</body>
+</html>
