@@ -3288,17 +3288,27 @@ function scrollStart(){
   if(!stage) return;
   const body = document.getElementById('stage-body');
   if(!body) return;
+  const maxScroll = body.scrollHeight - body.clientHeight;
+  if(maxScroll <= 0){
+    alert("Le contenu tient entièrement à l'écran, pas besoin de défiler.\n\nAjoute des paroles ou agrandis la police (A+) pour activer le défilement.");
+    return;
+  }
   stage.scroll.playing = true;
   clearInterval(stage.scroll.timer);
-  stage.scroll.timer = setInterval(()=>{
-    const b = document.getElementById('stage-body');
-    if(!b){ scrollStop(); return; }
-    if(b.scrollTop + b.clientHeight >= b.scrollHeight - 2){
-      scrollStop();
-      return;
-    }
-    b.scrollTop += stage.scroll.speed / 20;
-  }, 50);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    if(!stage || !stage.scroll.playing) return;
+    stage.scroll.timer = setInterval(()=>{
+      const b = document.getElementById('stage-body');
+      if(!b){ scrollStop(); return; }
+      const max = b.scrollHeight - b.clientHeight;
+      if(max <= 0) return;
+      if(b.scrollTop >= max - 1){
+        scrollStop();
+        return;
+      }
+      b.scrollTop = Math.min(b.scrollTop + stage.scroll.speed / 20, max);
+    }, 50);
+  }));
   drawStage(true);
 }
 
