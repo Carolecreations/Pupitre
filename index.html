@@ -490,7 +490,7 @@ function loadData(){
     const raw = localStorage.getItem(KEY);
     if(!raw) return defaultData();
     const d = JSON.parse(raw);
-    for(const k of ['users','groups','songs','songVersions','events','tasks','comments']){
+    for(const k of ['users','groups','songs','songVersions','events','tasks','comments','reviews']){
       if(!Array.isArray(d[k])) d[k] = [];
     }
     if(!d.privateNotes) d.privateNotes = {};
@@ -500,7 +500,7 @@ function loadData(){
 let data = loadData();
 data.events.forEach(e=>{ e.checklist = (e.checklist||[]).map(c=> typeof c==='string' ? {t:c,done:false} : c); });
 const ME_KEY='pupitre-me', SYNC_KEY='pupitre-sync';
-const COLS=['users','groups','songs','songVersions','events','tasks','comments'];
+const COLS=['users','groups','songs','songVersions','events','tasks','comments','reviews'];
 let sync=null;
 try{ sync=JSON.parse(localStorage.getItem(SYNC_KEY)); }catch(e){}
 (function(){
@@ -847,6 +847,7 @@ function render(){
   const content = (()=>{
     switch(ui.view){
       case 'calendar': return renderCalendar();
+      case 'concerts': return renderConcerts();
       case 'musicians': return isSuperAdmin() ? renderMusicians() : renderGroups();
       case 'search':   return renderSearch();
       case 'groups': return renderGroups();
@@ -1161,6 +1162,9 @@ function renderShell(content){
                 <button class="nav-item ${ui.view==='calendar'?'active':''}" data-nav="calendar">
           <span>📅</span> Calendrier
         </button>
+        <button class="nav-item ${ui.view==='concerts'?'active':''}" data-nav="concerts">
+          <span>🎤</span> Concerts
+        </button>
         <button class="nav-item ${ui.view==='search'?'active':''}" data-nav="search">
   <span>🔍</span> Rechercher
 </button>
@@ -1298,6 +1302,8 @@ function renderDashboard(){
         ${backupBanner()}
         <p class="sub">Vue unifiée de tes ${myGroups().length} groupes.</p>
     ${renderGroupFilter()}
+
+    ${renderRevise()}
 
     <h2>Prochains événements</h2>
     ${evts.length ? evts.map(e=>{
@@ -1862,6 +1868,462 @@ function availSummary(e, detail){
   if(!parts.length) return '';
   return `<div class="small" style="margin:${detail?'0 0 10px':'8px 0 0'};display:flex;gap:12px;flex-wrap:wrap">${parts.join('')}</div>`;
 }
+/* ============ CONCERTS : TABLEAU DE BORD + FINANCES (administrateur seul) ============ */
+// Les montants sont stockés à part (finances/<groupe>/<événement>), lisibles uniquement par l'administrateur
+// grâce aux règles Firebase : ils ne passent jamais par les appareils des autres musiciens.
+let fin = {};            // eventId -> {cachet, received, cash, expenses:[{id,label,amount}], shares:{userId:{in,part,paid}}}
+let finState = 'idle';   // idle | loading | ok | err
+const eur = n => (Number(n)||0).toLocaleString('fr-FR', {style:'currency', currency:'EUR'});
+const num = v => { const x = parseFloat(String(v==null ? '' : v).replace(',', '.')); return isFinite(x) ? x : 0; };
+
+async function finLoad(force){
+  if(!sync || !isRoomAdmin()) return;
+  if(!force && finState !== 'idle') return;
+  finState = 'loading';
+  try{
+    const r = await dbCall('GET', 'finances/' + encodeURIComponent(sync.room));
+    if(!r.ok) throw new Error('statut ' + r.status);
+    fin = (await r.json()) || {};
+    finState = 'ok';
+  }catch(e){ finState = 'err'; }
+  if(idle() && (ui.view === 'concerts' || ui.view === 'event')) render();
+}
+async function finSave(eid){
+  if(!sync || !isRoomAdmin()) return;
+  try{
+    const r = await dbCall('PUT', 'finances/' + encodeURIComponent(sync.room) + '/' + eid, fin[eid] || null);
+    if(!r.ok) throw new Error('statut ' + r.status);
+  }catch(e){ alert("Enregistrement des finances impossible (" + ((e && e.message) || e) + "). Vérifie la connexion, puis réessaie."); }
+}
+function finMut(eid, fn){
+  const next = JSON.parse(JSON.stringify(fin[eid] || {}));
+  next.expenses = Array.isArray(next.expenses) ? next.expenses : Object.values(next.expenses || {});
+  next.shares = next.shares || {};
+  fn(next);
+  fin[eid] = next;
+  finSave(eid); render();
+}
+function finOf(e){
+  const f = fin[e.id] || {};
+  const g = group(e.groupId);
+  const shares = {};
+  (g ? g.memberships : []).forEach(m => {
+    const s = (f.shares || {})[m.userId] || {};
+    shares[m.userId] = {in: s.in !== false, part: s.part !== undefined ? num(s.part) : 1, paid: !!s.paid};
+  });
+  const exp = Array.isArray(f.expenses) ? f.expenses : Object.values(f.expenses || {});
+  return {cachet: num(f.cachet), received: !!f.received, cash: num(f.cash), expenses: exp.filter(Boolean), shares};
+}
+function finCalc(e){
+  const f = finOf(e);
+  const frais = f.expenses.reduce((n, x) => n + num(x.amount), 0);
+  const net = f.cachet - frais;
+  const dist = Math.max(0, net - f.cash);
+  const ids = Object.keys(f.shares).filter(id => f.shares[id].in && f.shares[id].part > 0);
+  const totalPart = ids.reduce((n, id) => n + f.shares[id].part, 0);
+  const amounts = {};
+  let given = 0;
+  ids.forEach((id, i) => {
+    let a = totalPart ? Math.round(dist * f.shares[id].part / totalPart * 100) / 100 : 0;
+    if(i === ids.length - 1) a = Math.round((dist - given) * 100) / 100;
+    amounts[id] = a; given += a;
+  });
+  const owed = f.received ? ids.reduce((n, id) => n + (f.shares[id].paid ? 0 : amounts[id]), 0) : 0;
+  return {f, frais, net, dist, amounts, ids, owed};
+}
+
+function renderConcertFinance(e){
+  if(!isRoomAdmin()) return '';
+  finLoad();
+  const title = `<h2>💶 Cachet &amp; répartition <span class="badge" style="margin-left:8px">🔒 visible par toi seul</span></h2>`;
+  if(finState === 'idle' || finState === 'loading') return title + `<div class="card muted small">Chargement…</div>`;
+  if(finState === 'err') return title + `<div class="card"><div class="small" style="color:var(--danger)">Impossible de charger les finances. Vérifie la connexion et que les règles Firebase à jour sont publiées.</div><button class="btn sm" data-fin-retry style="margin-top:8px">Réessayer</button></div>`;
+  const c = finCalc(e), f = c.f, g = group(e.groupId);
+  const eid = e.id;
+  return title + `
+    <div class="card">
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+        <div class="field"><label>Cachet brut (€)</label><input inputmode="decimal" data-fin-in="${eid}:cachet" value="${f.cachet || ''}" placeholder="0"></div>
+        <div class="field"><label>Mise en caisse (€)</label><input inputmode="decimal" data-fin-in="${eid}:cash" value="${f.cash || ''}" placeholder="0"></div>
+      </div>
+      <label class="check-row" style="margin:12px 0 4px"><input type="checkbox" data-fin-received="${eid}" ${f.received ? 'checked' : ''}> <span>Cachet reçu</span></label>
+      <h3 style="margin-top:14px">Frais <button class="btn sm" data-fin-exp-add="${eid}" style="float:right">+ Frais</button></h3>
+      ${f.expenses.length ? f.expenses.map(x => `
+        <div class="avail-row"><div class="grow">${esc(x.label)}</div><div>${eur(x.amount)}</div>
+          <button class="btn ghost sm danger" data-fin-exp-del="${eid}:${esc(x.id)}">✕</button></div>`).join('')
+        : `<div class="muted small">Aucun frais (essence, location de matériel, repas…).</div>`}
+      <div class="small" style="margin:12px 0;padding:10px;background:var(--panel2);border-radius:8px;line-height:1.7">
+        Cachet ${eur(f.cachet)} − frais ${eur(c.frais)} = <strong>net ${eur(c.net)}</strong>${f.cash ? ` − caisse ${eur(f.cash)}` : ''}<br>
+        À répartir : <strong>${eur(c.dist)}</strong>${c.net < 0 ? ` <span style="color:var(--warn)">· les frais dépassent le cachet</span>` : ''}
+      </div>
+      <h3>Répartition</h3>
+      ${g.memberships.map(m => {
+        const u = user(m.userId); if(!u) return '';
+        const s = f.shares[u.id];
+        const a = c.amounts[u.id];
+        return `<div class="avail-row">
+          <input type="checkbox" data-fin-share="${eid}:${u.id}:in" ${s.in ? 'checked' : ''} title="A joué ce concert">
+          <div class="avatar" style="background:${u.color};width:28px;height:28px;font-size:12px">${esc(u.initials)}</div>
+          <div class="grow">${esc(u.name)}</div>
+          <input inputmode="decimal" data-fin-share-part="${eid}:${u.id}" value="${s.part}" title="Part (1 = part normale)" style="width:56px;text-align:center" ${s.in ? '' : 'disabled'}>
+          <div style="min-width:78px;text-align:right;font-weight:600">${s.in ? eur(a) : '—'}</div>
+          <label class="small" style="display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" data-fin-share="${eid}:${u.id}:paid" ${s.paid ? 'checked' : ''} ${s.in ? '' : 'disabled'}> payé</label>
+        </div>`;
+      }).join('')}
+      <div class="muted small" style="margin-top:8px">La case à gauche indique qui a joué. « Part » : 1 pour une part normale, 0,5 pour une demi-part.</div>
+    </div>`;
+}
+
+function bindFinance(){
+  const rt = $('[data-fin-retry]'); if(rt) rt.addEventListener('click', () => { finState = 'idle'; finLoad(true); });
+  $$('[data-fin-in]').forEach(i => i.addEventListener('change', () => {
+    const [eid, k] = i.dataset.finIn.split(':');
+    finMut(eid, f => { f[k] = num(i.value); });
+  }));
+  $$('[data-fin-received]').forEach(c => c.addEventListener('change', () => finMut(c.dataset.finReceived, f => { f.received = c.checked; })));
+  $$('[data-fin-exp-add]').forEach(b => b.addEventListener('click', () => {
+    const eid = b.dataset.finExpAdd;
+    openModal({
+      title: 'Ajouter des frais',
+      body: `<div class="field"><label>Libellé</label><input name="label" placeholder="Essence, location, repas…" required></div>
+             <div class="field"><label>Montant (€)</label><input name="amount" inputmode="decimal" required></div>`,
+      onSubmit: o => finMut(eid, f => { f.expenses.push({id: uid('x'), label: (o.label||'').trim(), amount: num(o.amount)}); })
+    });
+  }));
+  $$('[data-fin-exp-del]').forEach(b => b.addEventListener('click', () => {
+    const [eid, xid] = b.dataset.finExpDel.split(':');
+    finMut(eid, f => { f.expenses = f.expenses.filter(x => x.id !== xid); });
+  }));
+  $$('[data-fin-share]').forEach(c => c.addEventListener('change', () => {
+    const [eid, u, k] = c.dataset.finShare.split(':');
+    finMut(eid, f => { const s = f.shares[u] || (f.shares[u] = {in:true, part:1, paid:false}); s[k] = c.checked; });
+  }));
+  $$('[data-fin-share-part]').forEach(i => i.addEventListener('change', () => {
+    const [eid, u] = i.dataset.finSharePart.split(':');
+    finMut(eid, f => { const s = f.shares[u] || (f.shares[u] = {in:true, part:1, paid:false}); s.part = Math.max(0, num(i.value)); });
+  }));
+  const csv = $('[data-fin-csv]'); if(csv) csv.addEventListener('click', exportFinanceCsv);
+}
+
+function concertsList(){
+  const ids = myGroups().filter(g => !ui.dashGroup || g.id === ui.dashGroup).map(g => g.id);
+  return data.events.filter(e => e.type === 'concert' && ids.includes(e.groupId));
+}
+function exportFinanceCsv(){
+  const rows = [['Date','Groupe','Lieu','Cachet brut','Frais','Mise en caisse','Cachet reçu','Musicien','Part','Payé']];
+  concertsList().sort((a,b) => a.date.localeCompare(b.date)).forEach(e => {
+    const c = finCalc(e), g = group(e.groupId);
+    if(!c.f.cachet && !c.f.expenses.length) return;
+    const base = [e.date, g ? g.name : '', e.location || '', c.f.cachet, c.frais, c.f.cash, c.f.received ? 'oui' : 'non'];
+    if(!c.ids.length) rows.push(base.concat(['','','']));
+    c.ids.forEach(id => { const u = user(id); rows.push(base.concat([u ? u.name : id, c.amounts[id], c.f.shares[id].paid ? 'oui' : 'non'])); });
+  });
+  const cell = v => { const s = String(v == null ? '' : v).replace(/\./g, typeof v === 'number' ? ',' : '.'); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const txt = '\ufeff' + rows.map(r => r.map(cell).join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], {type:'text/csv;charset=utf-8'}));
+  a.download = 'pupitre-concerts-' + todayISO() + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+function renderConcerts(){
+  const today = todayISO();
+  const admin = isRoomAdmin();
+  if(admin) finLoad();
+  const all = concertsList();
+  const up = all.filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date) || (a.start||'').localeCompare(b.start||''));
+  const past = all.filter(e => e.date < today).sort((a,b) => b.date.localeCompare(a.date));
+  const noSet = up.filter(e => !(e.setlist||[]).length).length;
+  let missing = 0;
+  up.forEach(e => { const g = group(e.groupId); if(g) missing += g.memberships.filter(m => !(e.availability||{})[m.userId]).length; });
+  const kpi = (v, l, color) => `<div class="card" style="margin:0;padding:12px"><div style="font-size:22px;font-weight:700;${color ? 'color:'+color : ''}">${v}</div><div class="muted small">${l}</div></div>`;
+  let money = '';
+  if(admin){
+    if(finState === 'ok'){
+      let toCash = 0, cashed = 0, frais = 0, owed = 0; const perUser = {};
+      all.forEach(e => {
+        const c = finCalc(e);
+        frais += c.frais;
+        if(c.f.received) cashed += c.f.cachet; else toCash += c.f.cachet;
+        c.ids.forEach(id => { if(c.f.received && !c.f.shares[id].paid){ perUser[id] = (perUser[id]||0) + c.amounts[id]; owed += c.amounts[id]; } });
+      });
+      const owedRows = Object.keys(perUser).filter(id => perUser[id] > 0).map(id => { const u = user(id); return `<span class="chip">${esc(u ? u.name : id)} · ${eur(perUser[id])}</span>`; }).join(' ');
+      money = `
+        <h2>💶 Finances <span class="badge" style="margin-left:8px">🔒 toi seul</span>
+          <button class="btn sm" data-fin-csv style="float:right">⬇️ Export CSV</button></h2>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+          ${kpi(eur(toCash), 'à encaisser')}${kpi(eur(cashed), 'encaissé')}${kpi(eur(frais), 'frais')}${kpi(eur(owed), 'à reverser aux musiciens', owed ? 'var(--warn)' : '')}
+        </div>
+        ${owedRows ? `<div class="small" style="margin:10px 0">À reverser : ${owedRows}</div>` : ''}`;
+    } else if(finState === 'err'){
+      money = `<div class="card"><div class="small" style="color:var(--danger)">Impossible de charger les finances (connexion ou règles Firebase).</div><button class="btn sm" data-fin-retry style="margin-top:8px">Réessayer</button></div>`;
+    } else {
+      money = `<div class="card muted small">Chargement des finances…</div>`;
+    }
+  }
+  return `
+    <h1>Concerts</h1>
+    <p class="sub">Préparation et suivi de toutes tes dates.</p>
+    ${renderGroupFilter()}
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin:6px 0 4px">
+      ${kpi(up.length, 'concert' + (up.length > 1 ? 's' : '') + ' à venir')}
+      ${kpi(up.length ? fmtRelative(up[0].date) : '—', 'prochaine date')}
+      ${kpi(noSet, 'sans setlist', noSet ? 'var(--warn)' : '')}
+      ${kpi(missing, 'réponses de dispo manquantes', missing ? 'var(--warn)' : '')}
+    </div>
+    ${money}
+    <h2>À venir</h2>
+    ${up.length ? up.map(e => renderConcertCard(e, false)).join('') : `<div class="empty">Aucun concert à venir. Ajoute-en un depuis la page d'un groupe (onglet Événements).</div>`}
+    ${past.length ? `<h2>Passés</h2>${past.map(e => renderConcertCard(e, true)).join('')}` : ''}
+  `;
+}
+function renderConcertCard(e, isPast){
+  const g = group(e.groupId); if(!g) return '';
+  const sl = (e.setlist||[]).map(id => song(id)).filter(Boolean);
+  const tot = sl.reduce((n, s) => n + durSec(s.duration), 0);
+  const t = techOf(e);
+  const techN = (t.patch||[]).length + (t.gear||[]).length + (t.stage ? 1 : 0) + (t.stageImg ? 1 : 0);
+  const cl = e.checklist || [];
+  const clDone = cl.filter(c => c.done).length;
+  const av = e.availability || {};
+  const answered = g.memberships.filter(m => av[m.userId]).length;
+  const ok = (good, txt) => `<span class="chip" style="color:${good ? 'var(--ok)' : 'var(--warn)'}">${good ? '✓' : '•'} ${esc(txt)}</span>`;
+  const chips = [];
+  chips.push(sl.length ? ok(true, sl.length + ' morceau' + (sl.length > 1 ? 'x' : '') + (tot ? ' · ' + fmtTotal(tot) : '')) : ok(false, 'Setlist à préparer'));
+  if(!isPast){
+    chips.push(ok(answered === g.memberships.length, 'Dispos ' + answered + '/' + g.memberships.length));
+    chips.push(techN ? ok(true, 'Fiche technique : ' + techN + ' élément' + (techN > 1 ? 's' : '')) : ok(false, 'Fiche technique vide'));
+    if(cl.length) chips.push(ok(clDone === cl.length, 'À faire ' + clDone + '/' + cl.length));
+  }
+  if(isRoomAdmin() && finState === 'ok'){
+    const c = finCalc(e);
+    chips.push(c.f.cachet ? ok(c.f.received, 'Cachet ' + eur(c.f.cachet) + (c.f.received ? ' reçu' : ' à encaisser')) : ok(false, 'Cachet à saisir'));
+  }
+  return `<div class="card clickable" data-open-event="${e.id}" style="${isPast ? 'opacity:.75' : ''}">
+    <div class="row between">
+      <div>
+        <div style="font-weight:600">🎤 ${esc(e.location || 'Concert')} <span class="chip" style="margin-left:6px"><span class="group-dot" style="background:${g.color}"></span>${esc(g.name)}</span></div>
+        <div class="sub">${esc(fmtDate(e.date))} · ${esc(e.start || '')}${e.end ? '–' + esc(e.end) : ''}</div>
+      </div>
+      ${isPast ? '' : `<span class="badge">${esc(fmtRelative(e.date))}</span>`}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">${chips.join('')}</div>
+  </div>`;
+}
+
+/* ============ SETLIST EN PDF (sans bibliothèque : fonctionne aussi hors ligne) ============ */
+const HELV_W = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+const WIN1252 = {'€':0x80,'‚':0x82,'ƒ':0x83,'„':0x84,'…':0x85,'†':0x86,'‡':0x87,'ˆ':0x88,'‰':0x89,'Š':0x8A,'‹':0x8B,'Œ':0x8C,'Ž':0x8E,'‘':0x91,'’':0x92,'“':0x93,'”':0x94,'•':0x95,'–':0x96,'—':0x97,'˜':0x98,'™':0x99,'š':0x9A,'›':0x9B,'œ':0x9C,'ž':0x9E,'Ÿ':0x9F};
+function pdfEnc(str){
+  let out = '';
+  for(const ch of String(str)){
+    const c = ch.codePointAt(0);
+    if(WIN1252[ch] !== undefined) out += String.fromCharCode(WIN1252[ch]);
+    else if(c >= 32 && c < 256) out += String.fromCharCode(c);
+    else out += '?';
+  }
+  return out;
+}
+const pdfEsc = s => pdfEnc(s).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+function pdfW(str, size, bold){
+  let w = 0;
+  for(const ch of String(str)){
+    let c = ch.codePointAt(0);
+    if(c < 32 || c > 126){ const b = ch.normalize('NFD')[0]; c = b ? b.codePointAt(0) : 63; }
+    w += (c >= 32 && c <= 126) ? HELV_W[c - 32] : 556;
+  }
+  return w * size / 1000 * (bold ? 1.07 : 1);
+}
+function pdfFit(str, size, maxW, bold, minSize){
+  let s = size;
+  while(s > minSize && pdfW(str, s, bold) > maxW) s -= 0.5;
+  let t = String(str);
+  if(pdfW(t, s, bold) <= maxW) return {text:t, size:s};
+  while(t.length > 1 && pdfW(t + '…', s, bold) > maxW) t = t.slice(0, -1);
+  return {text:t + '…', size:s};
+}
+function buildSetlistPdf(e, opt){
+  const g = group(e.groupId);
+  const isRep = e.type === 'repetition';
+  const list = (e.setlist||[]).map(id => song(id)).filter(Boolean);
+  const big = opt.layout !== 'compact', det = opt.details !== false;
+  const W = 595, H = 842, M = 48;
+  const pages = [];
+  let ops = null, y = 0;
+  const T = (x, yy, s, size, bold, gray) => `BT ${gray === undefined ? 0 : gray} g /${bold ? 'F2' : 'F1'} ${size} Tf ${x.toFixed(1)} ${yy.toFixed(1)} Td (${pdfEsc(s)}) Tj ET\n`;
+  const TR = (xr, yy, s, size, bold, gray) => T(xr - pdfW(s, size, bold), yy, s, size, bold, gray);
+  const LN = (yy, gray, wd) => `${gray} G ${wd || 0.6} w ${M} ${yy.toFixed(1)} m ${W - M} ${yy.toFixed(1)} l S\n`;
+  function newPage(first){
+    ops = []; pages.push(ops); y = H - M;
+    if(first){
+      ops.push(T(M, y - 8, (g ? g.name : '').toUpperCase(), 12, true, 0.45));
+      ops.push(T(M, y - 46, isRep ? 'À travailler' : 'Setlist', 32, true, 0));
+      const when = [fmtDate(e.date), (e.start || '') + (e.end ? '–' + e.end : '')].filter(s => s && s.trim()).join(' · ');
+      const sub = [when, e.location].filter(Boolean).join(' · ');
+      const f = pdfFit(sub, 12, W - 2 * M, false, 9);
+      ops.push(T(M, y - 68, f.text, f.size, false, 0.35));
+      ops.push(LN(y - 82, 0.75, 1));
+      y -= 104;
+    } else {
+      ops.push(T(M, y - 6, (g ? g.name : '') + ' · ' + (isRep ? 'À travailler' : 'Setlist') + ' (suite)', 10, false, 0.45));
+      y -= 30;
+    }
+  }
+  newPage(true);
+  const rowH = big ? 46 : 24;
+  let tot = 0;
+  list.forEach((s, i) => {
+    if(y - rowH < M + 40) newPage(false);
+    const d = durSec(s.duration); tot += d;
+    const meta = det ? [s.key, s.bpm ? s.bpm + ' BPM' : '', d ? fmtDur(d) : ''].filter(Boolean).join('   ·   ') : '';
+    const base = y - (big ? 26 : 15);
+    const numW = big ? 44 : 28;
+    const metaW = meta ? pdfW(meta, big ? 13 : 10, false) + 16 : 0;
+    const f = pdfFit(s.title || '', big ? 24 : 13, W - 2 * M - numW - metaW, true, big ? 14 : 9);
+    ops.push(T(M, base, String(i + 1), big ? 20 : 11, true, 0.55));
+    ops.push(T(M + numW, base, f.text, f.size, true, 0));
+    if(meta) ops.push(TR(W - M, base, meta, big ? 13 : 10, false, 0.35));
+    ops.push(LN(y - rowH + 6, 0.88, 0.5));
+    y -= rowH;
+  });
+  if(y - 40 < M) newPage(false);
+  const summary = list.length + ' morceau' + (list.length > 1 ? 'x' : '') + (tot ? '   ·   durée totale environ ' + fmtTotal(tot) : '');
+  ops.push(T(M, y - 20, summary, 12, true, 0.35));
+  const N = pages.length;
+  pages.forEach((p, i) => {
+    p.push(T(M, 28, 'Pupitre', 9, false, 0.6));
+    p.push(TR(W - M, 28, 'page ' + (i + 1) + '/' + N, 9, false, 0.6));
+  });
+  const objs = [null];
+  objs[1] = '<</Type/Catalog/Pages 2 0 R>>';
+  objs[2] = '<</Type/Pages/Count ' + N + '/Kids[' + pages.map((_, i) => (5 + 2 * i) + ' 0 R').join(' ') + ']>>';
+  objs[3] = '<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>';
+  objs[4] = '<</Type/Font/Subtype/Type1/BaseFont/Helvetica-Bold/Encoding/WinAnsiEncoding>>';
+  pages.forEach((p, i) => {
+    const content = p.join('');
+    objs[5 + 2 * i] = '<</Type/Page/Parent 2 0 R/MediaBox[0 0 ' + W + ' ' + H + ']/Resources<</Font<</F1 3 0 R/F2 4 0 R>>>>/Contents ' + (6 + 2 * i) + ' 0 R>>';
+    objs[6 + 2 * i] = '<</Length ' + content.length + '>>\nstream\n' + content + '\nendstream';
+  });
+  let out = '%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n';
+  const offs = [];
+  for(let i = 1; i < objs.length; i++){ offs[i] = out.length; out += i + ' 0 obj\n' + objs[i] + '\nendobj\n'; }
+  const xref = out.length;
+  out += 'xref\n0 ' + objs.length + '\n0000000000 65535 f \n' + offs.slice(1).map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('')
+       + 'trailer\n<</Size ' + objs.length + '/Root 1 0 R>>\nstartxref\n' + xref + '\n%%EOF';
+  const u8 = new Uint8Array(out.length);
+  for(let i = 0; i < out.length; i++) u8[i] = out.charCodeAt(i) & 255;
+  return u8;
+}
+async function shareSetlistPdf(e, opt){
+  const g = group(e.groupId);
+  const bytes = buildSetlistPdf(e, opt);
+  const slug = String((g && g.name) || 'groupe').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const name = (e.type === 'repetition' ? 'a-travailler-' : 'setlist-') + slug + '-' + e.date + '.pdf';
+  const file = new File([bytes], name, {type:'application/pdf'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:(e.type === 'repetition' ? 'À travailler' : 'Setlist') + ' · ' + (g ? g.name : '')}); return; }
+    catch(err){ if(err && err.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function openSetlistPdfModal(eid){
+  const e = event(eid); if(!e) return;
+  if(!(e.setlist||[]).length){ alert('La setlist est vide.'); return; }
+  let canFiles = false;
+  try{ canFiles = !!(navigator.canShare && navigator.canShare({files:[new File([''], 'x.pdf', {type:'application/pdf'})]})); }catch(x){}
+  openModal({
+    title: 'Setlist en PDF',
+    submitLabel: canFiles ? 'Partager le PDF' : 'Télécharger le PDF',
+    body: `<p class="sub" style="margin:0">${canFiles ? 'Le PDF s\'ouvre dans le menu de partage : message, WhatsApp, e-mail, AirDrop, impression…' : 'Le PDF sera téléchargé sur cet appareil.'}</p>
+      <div class="field"><label>Format</label><select name="layout">
+        <option value="scene">Grand format (lisible sur scène)</option>
+        <option value="compact">Compact (plus de morceaux par page)</option></select></div>
+      <label class="check-row"><input type="checkbox" name="details" checked> <span>Afficher tonalité, BPM et durée</span></label>`,
+    onSubmit: o => shareSetlistPdf(e, {layout:o.layout, details:o.details === 'on'})
+  });
+}
+function bindSetlistPdf(){
+  $$('[data-setlist-pdf]').forEach(b => b.addEventListener('click', () => openSetlistPdfModal(b.dataset.setlistPdf)));
+}
+
+/* ============ À RÉVISER AVANT LA RÉPÈTE ============ */
+// Chaque musicien coche ses morceaux dans SA fiche (collection « reviews », une par personne et par répétition) :
+// deux personnes qui cochent en même temps ne s'écrasent donc jamais.
+const reviewId = (eid, u) => 'rv_' + eid + '_' + u;
+function reviewedSongs(eid, u){
+  const r = (data.reviews || []).find(x => x.id === reviewId(eid, u));
+  return (r && r.songs) || [];
+}
+function setReviewed(eid, sid, on){
+  data.reviews = data.reviews || [];
+  const id = reviewId(eid, ui.currentUserId);
+  let r = data.reviews.find(x => x.id === id);
+  if(!r){ r = {id, eventId:eid, userId:ui.currentUserId, songs:[]}; data.reviews.push(r); }
+  const set = new Set(r.songs || []);
+  if(on) set.add(sid); else set.delete(sid);
+  r.songs = [...set];
+  save(); render();
+}
+function songAudio(sid){
+  return songVersions(sid).filter(v => /^https?:\/\//.test(v.url || ''))
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))[0] || null;
+}
+function reviewChip(e, s){
+  const g = group(e.groupId); if(!g) return '';
+  const people = g.memberships.map(m => user(m.userId)).filter(Boolean);
+  if(!people.length) return '';
+  const done = people.filter(u => reviewedSongs(e.id, u.id).includes(s.id));
+  const names = done.length ? done.map(u => u.name).join(', ') : "Personne pour l'instant";
+  return `<div class="small" style="margin-top:2px;color:${done.length === people.length ? 'var(--ok)' : 'var(--muted)'}" title="${esc(names)}">✓ ${done.length}/${people.length} ont révisé</div>`;
+}
+function renderRevise(){
+  const today = todayISO(), limit = addDays(today, 14), me = ui.currentUserId;
+  const evts = upcomingEvents().filter(e => e.type === 'repetition' && (e.setlist || []).length && e.date <= limit).slice(0, 3);
+  if(!evts.length) return '';
+  return `<h2>🎧 À réviser avant la répète</h2>` + evts.map(e => {
+    const g = group(e.groupId);
+    const songs = (e.setlist || []).map(id => song(id)).filter(Boolean);
+    if(!g || !songs.length) return '';
+    const mine = reviewedSongs(e.id, me);
+    const done = songs.filter(s => mine.includes(s.id)).length;
+    return `<div class="card">
+      <div class="row between" style="flex-wrap:wrap;gap:6px">
+        <div>
+          <div style="font-weight:600">${esc(g.name)} — répétition</div>
+          <div class="sub">${esc(fmtDate(e.date))} · ${esc(e.start || '')}${e.location ? ' · ' + esc(e.location) : ''}</div>
+        </div>
+        <span class="badge"><span class="b-dot" style="background:${g.color}"></span>${esc(fmtRelative(e.date))}</span>
+      </div>
+      ${e.notes ? `<div class="small" style="margin-top:8px;white-space:pre-wrap">${esc(e.notes)}</div>` : ''}
+      <div style="height:6px;background:var(--panel2);border-radius:4px;margin:12px 0 6px"><div style="height:6px;width:${Math.round(done / songs.length * 100)}%;background:var(--ok);border-radius:4px"></div></div>
+      <div class="small muted" style="margin-bottom:8px">${done}/${songs.length} révisé${done > 1 ? 's' : ''} · coche un morceau quand tu l'as travaillé</div>
+      <div class="list">${songs.map(s => {
+        const v = songAudio(s.id), on = mine.includes(s.id);
+        const tk = data.tasks.filter(t => t.songId === s.id && !t.done && (t.assignedTo || []).includes(me)).length;
+        const meta = [s.key, s.bpm ? s.bpm + ' BPM' : '', v ? 'audio : ' + v.label : "pas d'audio", tk ? '📝 ' + tk + ' tâche' + (tk > 1 ? 's' : '') : ''].filter(Boolean).map(esc).join(' · ');
+        return `<div class="li">
+          <input type="checkbox" data-review="${e.id}:${s.id}" ${on ? 'checked' : ''}>
+          <div class="grow" style="min-width:0">
+            <div class="title" style="${on ? 'text-decoration:line-through;color:var(--muted)' : ''}">${esc(s.title)}</div>
+            <div class="meta">${meta}</div>
+          </div>
+          ${v ? `<button class="btn sm primary" data-play="${s.id}:${v.id}">▶ Écouter</button>` : ''}
+          <button class="btn ghost sm" data-open-song="${s.id}">Ouvrir</button>
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+  }).join('');
+}
+function bindRevise(){
+  $$('[data-review]').forEach(c => c.addEventListener('change', () => {
+    const [eid, sid] = c.dataset.review.split(':');
+    setReviewed(eid, sid, c.checked);
+  }));
+}
+
 function renderEventCard(e, past){
   const t = typeOf(e.type);
   return `<div class="card clickable" data-open-event="${e.id}" style="${past?'opacity:.65':''}">
@@ -2274,7 +2736,7 @@ const slEmpty = isRep ? 'Aucun morceau à travailler en priorité.' : 'Aucun mor
       }).join('')}
     </div>
 
-       <h2>${slTitle} ${setlist.length ? `<button class="btn sm primary" data-stage="${e.id}" style="float:right">🎤 Mode scène</button>` : ''}</h2>
+       <h2>${slTitle} ${setlist.length ? `<span style="float:right;display:flex;gap:6px"><button class="btn sm" data-setlist-pdf="${e.id}">📄 PDF</button><button class="btn sm primary" data-stage="${e.id}">🎤 Mode scène</button></span>` : ''}</h2>
            ${setlistSummary(e)}
     <div class="card">
       ${setlist.length ? setlist.map((s,i)=>`
@@ -2283,6 +2745,7 @@ const slEmpty = isRep ? 'Aucun morceau à travailler en priorité.' : 'Aucun mor
           <div class="grow">
             <div style="font-weight:600">${esc(s.title)}</div>
                        <div class="sub">${[s.key, s.bpm?s.bpm+' BPM':'', durSec(s.duration)?fmtDur(durSec(s.duration)):''].filter(Boolean).map(esc).join(' · ')}</div>
+            ${isRep ? reviewChip(e,s) : ''}
           </div>
           <button class="btn ghost sm" data-setlist-up="${e.id}:${i}">↑</button>
           <button class="btn ghost sm" data-setlist-down="${e.id}:${i}">↓</button>
@@ -2298,6 +2761,7 @@ const slEmpty = isRep ? 'Aucun morceau à travailler en priorité.' : 'Aucun mor
     </div>
 
        ${renderTech(e)}
+       ${e.type==='concert' ? renderConcertFinance(e) : ''}
 
     <h2>Checklist</h2>
     <div class="card">
@@ -3106,6 +3570,9 @@ $$('[data-member-instrument]').forEach(b=>b.addEventListener('click',()=>{
     e.stopPropagation(); openSong(b.dataset.openSong);
   }));
   $$('[data-open-event]').forEach(b=>b.addEventListener('click',()=>openEvent(b.dataset.openEvent)));
+  bindFinance();
+  bindSetlistPdf();
+  bindRevise();
 
   $$('[data-group-tab]').forEach(b=>b.addEventListener('click',()=>{
     ui.tab = b.dataset.groupTab; render();
@@ -3983,7 +4450,7 @@ if(fbAuth){
   fbAuth.onAuthStateChanged(async u => {
     fbUser = u;
     if(!u){
-      identityPending = false; myMember = null; ui.currentUserId = null;
+      identityPending = false; myMember = null; ui.currentUserId = null; fin = {}; finState = 'idle';
       localStorage.removeItem(ME_KEY); localStorage.removeItem(ADMIN_KEY);
       render();
       if(localStorage.getItem(INVITE_KEY)){ await autoClaimPending(); render(); }
