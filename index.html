@@ -2598,9 +2598,9 @@ function renderSong(){
         ${SONG_STATUSES.map(x=>`<option value="${x.id}" ${x.id===s.status?'selected':''}>${x.label}</option>`).join('')}
       </select>
       <div class="spacer"></div>
-           <button class="btn ghost sm" data-copy-song="${s.id}">Copier vers…</button>
+                      <button class="btn ghost sm" data-copy-song="${s.id}">Copier vers…</button>
       <button class="btn ghost sm" data-edit-song="${s.id}">Modifier</button>
-      <button class="btn ghost sm danger" data-delete-song="${s.id}">Supprimer</button>
+      ${isAdmin(g.id)?`<button class="btn ghost sm danger" data-delete-song="${s.id}">Supprimer</button>`:''}
     </div>
     <p class="sub">
       <span class="group-dot" style="background:${g.color};display:inline-block;vertical-align:middle"></span>
