@@ -3564,6 +3564,16 @@ $$('[data-member-instrument]').forEach(b=>b.addEventListener('click',()=>{
   }));
   $$('[data-new-user]').forEach(b=>b.addEventListener('click',()=>openUserModal(b.dataset.newUser)));
   $$('[data-user-delete]').forEach(b=>b.addEventListener('click',()=>deleteUser(b.dataset.userDelete)));
+    $$('[data-musician-add]').forEach(sel=>sel.addEventListener('change',()=>{
+    const userId = sel.dataset.musicianAdd;
+    const gid = sel.value;
+    if(!gid || !userId) return;
+    const g = data.groups.find(x => x.id === gid);
+    if(g && !g.memberships.some(m => m.userId === userId)){
+      g.memberships.push({userId, role:'member'});
+      save(); render();
+    }
+  }));
   $$('[data-open-group]').forEach(b=>b.addEventListener('click',()=>openGroup(b.dataset.openGroup)));
   $$('[data-open-song]').forEach(b=>b.addEventListener('click',e=>{
     e.stopPropagation(); openSong(b.dataset.openSong);
