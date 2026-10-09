@@ -214,7 +214,26 @@ if('serviceWorker' in navigator){
 
 <script>
 window.onerror=function(m,s,l,c){document.body.innerHTML='<pre style="color:#ff6b6b;padding:24px;font:14px monospace;white-space:pre-wrap;background:#111">ERREUR JS\n'+m+'\nLigne '+l+':'+c+'</pre>';};
-
+/* ✅ Mode test par paramètre d'URL */
+(function(){
+  const p = new URLSearchParams(location.search);
+  if(p.get('test') === '1'){
+    localStorage.setItem('pupitre-test-mode', '1');
+    localStorage.setItem('pupitre-test-observe', p.get('observe') === '1' ? '1' : '0');
+    // choisir un admin par défaut
+    try{
+      const raw = localStorage.getItem('pupitre-v2-test') || localStorage.getItem('pupitre-v2');
+      const d = JSON.parse(raw || '{}');
+      const admin = (d.users||[]).find(u =>
+        (d.groups||[]).some(g => (g.memberships||[]).some(m => m.userId === u.id && m.role === 'admin'))
+      ) || (d.users||[])[0];
+      if(admin){
+        localStorage.setItem('pupitre-me', admin.id);
+        localStorage.setItem('pupitre-test-viewas', admin.id);
+      }
+    }catch(e){}
+  }
+})();
 /* ============ MODE TEST (développeur) ============ */
 const TEST_FLAG = 'pupitre-test-mode';
 const TEST_OBSERVE_FLAG = 'pupitre-test-observe';
