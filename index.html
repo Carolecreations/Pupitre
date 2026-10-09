@@ -3977,6 +3977,7 @@ function openEventModal(gid, eid){
         onSubmit: fd=>{
       const patch = {type:fd.type, date:fd.date, start:fd.start, end:fd.end,
                      location:fd.location, notes:fd.notes};
+          let saved = null;
            learnLocation(gid, fd.location);
       if(eid){
         const target = data.events.find(x => x.id === eid);
