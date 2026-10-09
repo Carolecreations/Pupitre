@@ -3887,6 +3887,38 @@ function openGroupModal(gid){
     }
   });
 }
+function openUserEditModal(userId){
+  const u = user(userId); if(!u) return;
+  const autoIni = (u.name||'').split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  openModal({
+    title:'Modifier '+u.name,
+    body:`
+      <div class="field"><label>Prénom / nom</label>
+        <input name="name" required value="${esc(u.name)}"></div>
+      <div class="field"><label>Initiales (2 lettres)</label>
+        <input name="initials" maxlength="3" value="${esc(u.initials||autoIni)}" style="text-transform:uppercase"></div>
+      <div class="field"><label>Instruments (par défaut, tous groupes)</label>
+        <input name="instruments" value="${esc(u.instruments||'')}" placeholder="Compo, guitare, machines, chant…"></div>
+      <div class="field"><label>Couleur</label>
+        <input type="color" name="color" value="${u.color||'#6366f1'}" style="height:40px"></div>
+      <p class="sub" style="margin:0">
+        💡 Pour un instrument <strong>différent selon le groupe</strong> :
+        ouvre le groupe → onglet <em>Membres</em> → bouton « Instrument »
+        sur la fiche du musicien. Sinon, l'instrument par défaut ci‑dessus sera utilisé.
+      </p>
+    `,
+    onSubmit: fd=>{
+      const t = data.users.find(x=>x.id===userId); if(!t) return;
+      const name = (fd.name||'').trim(); if(!name) return;
+      t.name = name;
+      const ini = (fd.initials||'').trim().toUpperCase();
+      t.initials = ini || name.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase() || name.slice(0,2).toUpperCase();
+      t.instruments = (fd.instruments||'').trim();
+      t.color = fd.color;
+      save(); render();
+    }
+  });
+}
 
 function openUserModal(gid){
   const palette = ['#6366f1','#ec4899','#f59e0b','#10b981','#06b6d4','#ef4444','#8b5cf6'];
