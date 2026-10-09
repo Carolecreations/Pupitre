@@ -1225,6 +1225,7 @@ function bindShell(){
   }));
   setStatus(syncState);
   const sy = $('[data-sync]'); if(sy) sy.addEventListener('click', openSyncModal);
+    const cm = $('[data-clean-media]'); if(cm) cm.addEventListener('click', openCleanupModal);
    const ex = $('[data-export]'); if(ex) ex.addEventListener('click', exportData);
   const it = $('[data-import-text]'); if(it) it.addEventListener('click', openImportText);
   const im = $('[data-import]'), fi = $('#import-file');
