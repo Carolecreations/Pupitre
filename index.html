@@ -3566,6 +3566,7 @@ $$('[data-member-instrument]').forEach(b=>b.addEventListener('click',()=>{
   }));
   $$('[data-new-user]').forEach(b=>b.addEventListener('click',()=>openUserModal(b.dataset.newUser)));
   $$('[data-user-delete]').forEach(b=>b.addEventListener('click',()=>deleteUser(b.dataset.userDelete)));
+    $$('[data-user-edit]').forEach(b=>b.addEventListener('click',()=>openUserEditModal(b.dataset.userEdit)));
     $$('[data-musician-add]').forEach(sel=>sel.addEventListener('change',()=>{
     const userId = sel.dataset.musicianAdd;
     const gid = sel.value;
