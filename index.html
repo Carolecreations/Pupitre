@@ -4004,6 +4004,7 @@ if(fbAuth){
     .catch(()=>{})
     .then(() => {
   fbAuth.onAuthStateChanged(async u => {
+     if(isTestMode()) return;   // ✅ Mode test : on ignore Firebase
     fbUser = u;
     if(!u){
       identityPending = false; myMember = null; ui.currentUserId = null; fin = {}; finState = 'idle';
