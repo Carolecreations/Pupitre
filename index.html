@@ -3284,7 +3284,46 @@ function stageSize(d){
   try{ localStorage.setItem('pupitre-stage-size', stage.size); }catch(x){}
   drawStage(true);
 }
-function drawStage(keepScroll){
+function scrollStart(){
+  if(!stage) return;
+  const body = document.getElementById('stage-body');
+  if(!body) return;
+  stage.scroll.playing = true;
+  clearInterval(stage.scroll.timer);
+  stage.scroll.timer = setInterval(()=>{
+    const b = document.getElementById('stage-body');
+    if(!b){ scrollStop(); return; }
+    if(b.scrollTop + b.clientHeight >= b.scrollHeight - 2){
+      scrollStop();
+      return;
+    }
+    b.scrollTop += stage.scroll.speed / 20;
+  }, 50);
+  drawStage(true);
+}
+
+function scrollStop(){
+  if(!stage) return;
+  stage.scroll.playing = false;
+  clearInterval(stage.scroll.timer);
+  drawStage(true);
+}
+
+function scrollToggle(){
+  if(!stage) return;
+  if(stage.scroll.playing) scrollStop();
+  else scrollStart();
+}
+
+function scrollChange(d){
+  if(!stage) return;
+  stage.scroll.speed = Math.max(5, Math.min(120, stage.scroll.speed + d));
+  try{ localStorage.setItem('pupitre-scroll-speed', stage.scroll.speed); }catch(x){}
+  if(stage.scroll.playing){ scrollStart(); }
+  else { drawStage(true); }
+}
+
+  function drawStage(keepScroll){
   let el = document.getElementById('stage-root');
   if(!stage){ if(el) el.remove(); return; }
   const s = song(stage.ids[stage.i]);
@@ -3314,12 +3353,17 @@ function drawStage(keepScroll){
   el.innerHTML = `
     <div style="position:fixed;inset:0;z-index:300;background:#000;color:#fff;display:flex;flex-direction:column;
       padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)">
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #2a2f3a">
+           <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #2a2f3a;flex-wrap:wrap">
         <button onclick="closeStage()" ${bt}>✕</button>
 <button onclick="metroToggle()" ${bt} style="background:${metro && metro.playing ? '#6366f1' : '#171a21'};border-color:${metro && metro.playing ? '#6366f1' : '#2a2f3a'}">🥁${metro && metro.playing ? ' ' + metro.bpm : ''}</button>
 ${metro && metro.playing ? `
   <button onclick="metroBpmChange(-2)" ${bt} style="padding:12px 14px">−</button>
   <button onclick="metroBpmChange(2)" ${bt} style="padding:12px 14px">+</button>
+` : ''}
+<button onclick="scrollToggle()" ${bt} style="background:${stage.scroll.playing ? '#10b981' : '#171a21'};border-color:${stage.scroll.playing ? '#10b981' : '#2a2f3a'}">📜${stage.scroll.playing ? '' : ''}</button>
+${stage.scroll.playing ? `
+  <button onclick="scrollChange(-5)" ${bt} style="padding:12px 14px">−</button>
+  <button onclick="scrollChange(5)" ${bt} style="padding:12px 14px">+</button>
 ` : ''}
 <div style="flex:1;text-align:center;color:#8b93a7">${stage.i+1} / ${n}</div>
         <button onclick="stageSize(-2)" ${bt}>A−</button>
