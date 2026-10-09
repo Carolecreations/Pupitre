@@ -1620,9 +1620,10 @@ function renderMusicians(){
                 <button data-member-remove="${g.id}:${u.id}" title="Retirer de ce groupe" style="margin-left:4px;color:var(--muted)">✕</button></span>`;
             }).join('') : '<span class="muted small">Aucun groupe</span>'}
           </div>
-          <div class="row" style="gap:6px;flex-wrap:wrap">
+                  <div class="row" style="gap:6px;flex-wrap:wrap">
             ${isRoomAdmin()?`<button class="btn sm primary" data-member-invite="${u.id}">Inviter</button>`:''}
             ${(isRoomAdmin() && joined[u.id] && u.id!==ui.currentUserId)?`<button class="btn sm" data-member-revoke="${u.id}">Retirer l'accès</button>`:''}
+            <button class="btn sm" data-user-edit="${u.id}" title="Modifier nom, initiales, instruments, couleur">✎ Modifier</button>
             ${free.length?`<select data-musician-add="${u.id}" style="width:auto;padding:5px 8px;font-size:13px"><option value="">+ Groupe…</option>${free.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select>`:''}
             ${u.id!==ui.currentUserId?`<button class="btn sm danger" data-user-delete="${u.id}">Supprimer</button>`:''}
           </div>
