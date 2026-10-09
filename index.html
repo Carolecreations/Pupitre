@@ -4464,6 +4464,20 @@ function icsBuild(list){
   L.push('END:VCALENDAR');
   return L.join('\r\n')+'\r\n';
 }
+  function downloadIcs(){
+  const ics = window._pupIcs || '';
+  if(!ics){ alert("Rien à exporter."); return; }
+  const blob = new Blob([ics], {type:'text/calendar'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'pupitre-agenda.ics';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+}
+
 function shareIcs(){
   const ics = window._pupIcs || '';
   const file = new File([ics], 'pupitre-agenda.ics', {type:'text/calendar'});
