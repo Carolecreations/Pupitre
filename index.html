@@ -9,8 +9,6 @@
 <link rel="apple-touch-icon" href="pupitre-icone-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Pupitre">
 <title>Pupitre — espace musicien multi-groupes</title>
@@ -1200,6 +1198,7 @@ function renderShell(content){
     <div class="name">${esc(me.name)}</div>
     <div class="sub">${esc(me.instruments||'')}</div>
   </div>
+    <button class="btn ghost sm" data-my-code title="Changer mon code personnel">🔑</button>
     <button class="btn ghost sm" data-link-google title="Lier mon compte Google (retrouver mon accès sur un autre appareil)">🔗</button>
   <button class="btn ghost sm" data-logout title="Se déconnecter">⎋</button>
 
@@ -1241,6 +1240,7 @@ function bindShell(){
       r.readAsText(f);
     });
   }
+ const mc = $('[data-my-code]'); if(mc) mc.addEventListener('click', openMyCodeModal);
  const lo = $('[data-logout]'); if(lo) lo.addEventListener('click', async ()=>{
   const cu = fbAuth && fbAuth.currentUser;
   const hasGoogle = cu && (cu.providerData||[]).some(p=>p.providerId==='google.com');
@@ -4342,6 +4342,60 @@ function inviteText(u, code){
   const base = location.origin+location.pathname;
   const guide = new URL('mode-emploi.html', base).href;
   return 'Salut '+u.name+' !\n\nVoici ton accès à Pupitre, l\'appli de nos groupes'+(gs.length?' ('+gs.join(', ')+')':'')+'.\n\n1. Touche ce lien depuis ton téléphone ou ta tablette :\n'+inviteLink(code)+'\n\n2. Si le lien ne t\'ouvre pas ton espace (par exemple depuis l\'appli installée sur l\'écran d\'accueil), ouvre Pupitre et tape ce code :\n'+showCode(code)+'\n\nLe code est valable '+INVITE_DAYS+' jours et ne sert qu\'une fois. Garde ton téléphone : tu restes connecté ensuite.\n\nMode d\'emploi : '+guide;
+}
+/* ============ CHANGER MON CODE PERSONNEL ============ */
+async function changeMyCode(){
+  const u = fbAuth && fbAuth.currentUser;
+  if(!sync || !u) throw new Error('tu dois être connecté et la synchro active');
+  const room = encodeURIComponent(sync.room);
+  const r0 = await dbCall('GET', 'members/' + room + '/' + u.uid);
+  const mem = r0.ok ? await r0.json() : null;
+  if(!mem || !mem.userId) throw new Error('accès introuvable sur cet appareil');
+  const code = genCode();
+  const body = {room: sync.room, userId: mem.userId, exp: Date.now() + INVITE_DAYS*86400000, created: Date.now()};
+  if(mem.admin) body.admin = true;
+  const r = await dbCall('PUT', 'invites/' + code, body);
+  if(!r.ok) throw new Error('statut ' + r.status);
+  // l'ancien code est supprimé : il ne fonctionne plus
+  const old = normCode(mem.code);
+  if(old && old !== code){ try{ await dbCall('DELETE', 'invites/' + old); }catch(e){} }
+  try{ await dbCall('PATCH', 'members/' + room + '/' + u.uid, {code}); }catch(e){}
+  return code;
+}
+async function runChangeMyCode(){
+  let code;
+  try{ code = await changeMyCode(); }
+  catch(e){
+    const m = String((e && e.message) || e);
+    alert((/40[13]/.test(m) ? "Le serveur a refusé le changement de code (règles Firebase)." : "Impossible de changer le code (" + m + ").") + " Ton code actuel reste valable.");
+    return;
+  }
+  let svg = null;
+  try{ svg = qrSvg(inviteLink(code)); }catch(e){}
+  window._pupMyCode = showCode(code);
+  openModal({
+    title:'Ton nouveau code',
+    submitLabel:'Copier le code',
+    body:`<p class="sub" style="margin:0">C'est ton nouveau code personnel. L'ancien ne fonctionne plus. Il sert à retrouver ton espace sur un autre appareil (valable ${INVITE_DAYS} jours). Garde-le pour toi.</p>
+      ${svg ? `<div style="display:grid;place-items:center">${svg}</div>` : ''}
+      <div style="text-align:center;font-size:28px;font-weight:700;letter-spacing:4px;margin:8px 0">${esc(window._pupMyCode)}</div>`,
+    onSubmit: ()=>{
+      const t = window._pupMyCode || '';
+      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(()=>alert('Code copié.'),()=>alert('Copie impossible : note le code.')); }
+      else alert('Copie impossible : note le code.');
+    }
+  });
+}
+function openMyCodeModal(){
+  if(!sync){ alert("Active d'abord la synchro (menu Synchro)."); return; }
+  if(!(fbAuth && fbAuth.currentUser)){ alert("Tu n'es pas connecté."); return; }
+  openModal({
+    title:'Changer mon code personnel',
+    submitLabel:'Générer un nouveau code',
+    body:`<p class="sub" style="margin:0">Tu es déjà dans ton espace : tu n'as rien à retaper sur cet appareil. Le code personnel sert à te reconnecter depuis un autre téléphone ou une autre tablette.</p>
+      <p class="sub" style="margin:0">En générant un nouveau code, <strong>l'ancien est supprimé</strong>. Pense à le noter avant de fermer la fenêtre suivante.</p>`,
+    onSubmit: ()=>{ runChangeMyCode(); }
+  });
 }
 function shareInvite(){
   const t = window._pupInvite || '';
