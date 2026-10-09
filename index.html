@@ -1626,8 +1626,13 @@ function renderMusicians(){
   ${(isRoomAdmin() && joined[u.id] && u.id!==ui.currentUserId)?`<button class="btn sm" data-member-revoke="${u.id}">Retirer l'accès</button>`:''}
   <button class="btn sm" data-user-edit="${u.id}" title="Modifier nom, initiales, instruments, couleur">✎ Modifier</button>
   ${free.length?`<select data-musician-add="${u.id}" style="width:auto;padding:5px 8px;font-size:13px"><option value="">+ Groupe…</option>${free.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select>`:''}
-  ${u.id!==ui.currentUserId?`<button class="btn sm danger" data-user-delete="${u.id}">Supprimer</button>`:''}
+   ${u.id!==ui.currentUserId?`<button class="btn sm danger" data-user-delete="${u.id}">Supprimer</button>`:''}
 </div>
+        </div>
+      </div>`;
+      }).join('')}
+    </div>`;
+}
 
 function renderGroups(){
   return `
@@ -3895,10 +3900,8 @@ function openGroupModal(gid){
   });
 }
 
-function openUserModal(gid){
 function openUserEditModal(userId){
   const u = user(userId); if(!u) return;
-  // pré-calcul des initiales par défaut si vide
   const autoIni = (u.name||'').split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
   openModal({
     title:'Modifier '+u.name,
@@ -3932,6 +3935,8 @@ function openUserEditModal(userId){
     }
   });
 }
+
+function openUserModal(gid){
   const palette = ['#6366f1','#ec4899','#f59e0b','#10b981','#06b6d4','#ef4444','#8b5cf6'];
   openModal({
     title:'Nouveau musicien',
