@@ -84,12 +84,7 @@
   input.cs::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid #0f1115;box-shadow:0 0 0 2px #fff}
   input.cs::-moz-range-track{background:transparent}
   .user-box{margin-top:auto;padding:12px;border-top:1px solid var(--border);
-  display:flex;flex-direction:column;gap:8px}
-.user-top{display:flex;align-items:center;gap:10px;min-width:0}
-.user-actions{display:flex;gap:6px}
-.user-actions .btn{flex:1;justify-content:center;padding:7px 6px;font-size:12px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .sidebar{overflow-y:auto;overflow-x:hidden}.sidebar{overflow-y:auto;overflow-x:hidden}
+    display:flex;align-items:center;gap:10px}
   .avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;
     font-weight:700;color:#fff;font-size:13px;flex-shrink:0}
   .user-meta{flex:1;min-width:0}
@@ -1232,21 +1227,18 @@ function renderShell(content){
           </button>`;
         }).join('')}
       </div>
-     <div class="user-box">
-  <div class="user-top">
-    <button data-user-color title="Changer ma couleur" style="border:none;background:none;padding:0;flex-shrink:0">
-      <div class="avatar" style="background:${me.color}">${esc(me.initials)}</div>
-    </button>
-    <div class="user-meta">
-      <div class="name">${esc(me.name)}</div>
-      <div class="sub">${esc(me.instruments||'')}</div>
-    </div>
+      <div class="user-box">
+  <button data-user-color title="Changer ma couleur" style="border:none;background:none;padding:0">
+    <div class="avatar" style="background:${me.color}">${esc(me.initials)}</div>
+  </button>
+  <div class="user-meta">
+    <div class="name">${esc(me.name)}</div>
+    <div class="sub">${esc(me.instruments||'')}</div>
   </div>
-  <div class="user-actions">
-    <button class="btn ghost sm" data-my-code title="Changer mon code personnel">🔑 Code</button>
-    <button class="btn ghost sm" data-link-google title="Lier mon compte Google">🔗 Google</button>
-    <button class="btn ghost sm" data-logout title="Se déconnecter">⎋ Quitter</button>
-  </div>
+    <button class="btn ghost sm" data-my-code title="Changer mon code personnel">🔑</button>
+    <button class="btn ghost sm" data-link-google title="Lier mon compte Google (retrouver mon accès sur un autre appareil)">🔗</button>
+  <button class="btn ghost sm" data-logout title="Se déconnecter">⎋</button>
+
 </div>
     </aside>
     <main class="main">
@@ -1923,27 +1915,98 @@ function availSummary(e, detail){
 // grâce aux règles Firebase : ils ne passent jamais par les appareils des autres musiciens.
 let fin = {};            // eventId -> {cachet, received, cash, expenses:[{id,label,amount}], shares:{userId:{in,part,paid}}}
 let finState = 'idle';   // idle | loading | ok | err
+let finGroups = {};      // groupes dont l'administrateur principal m'a ouvert les finances : {groupId:true}
+let finAccessAll = {};   // vu par l'administrateur principal : {userId:{groupId:true}}
+const canFin = gid => isRoomAdmin() || !!finGroups[gid];
+const canFinAny = () => isRoomAdmin() || Object.keys(finGroups).length > 0;
+const finAccessOn = (uid_, gid) => !!(finAccessAll[uid_] && finAccessAll[uid_][gid]);
 const eur = n => (Number(n)||0).toLocaleString('fr-FR', {style:'currency', currency:'EUR'});
 const num = v => { const x = parseFloat(String(v==null ? '' : v).replace(',', '.')); return isFinite(x) ? x : 0; };
 
 async function finLoad(force){
-  if(!sync || !isRoomAdmin()) return;
+  if(!sync || !canFinAny()) return;
   if(!force && finState !== 'idle') return;
   finState = 'loading';
   try{
-    const r = await dbCall('GET', 'finances/' + encodeURIComponent(sync.room));
-    if(!r.ok) throw new Error('statut ' + r.status);
-    fin = (await r.json()) || {};
+    const room = encodeURIComponent(sync.room);
+    const flat = {};
+    if(isRoomAdmin()){
+      const r = await dbCall('GET', 'finances/' + room);
+      if(!r.ok) throw new Error('statut ' + r.status);
+      const raw = (await r.json()) || {};
+      const legacy = [];
+      Object.keys(raw).forEach(k => {
+        const v = raw[k]; if(!v || typeof v !== 'object') return;
+        if(group(k)) Object.keys(v).forEach(eid => { flat[eid] = v[eid]; });
+        else if(event(k)) legacy.push(k);                  // ancien format : finances/<événement>
+      });
+      const upd = {};
+      legacy.forEach(k => {
+        const ev = event(k);
+        if(!(k in flat)){ flat[k] = raw[k]; upd[ev.groupId + '/' + k] = raw[k]; }
+        upd[k] = null;
+      });
+      if(Object.keys(upd).length){ try{ await dbCall('PATCH', 'finances/' + room, upd); }catch(e){} }
+    } else {
+      for(const gid of Object.keys(finGroups)){
+        const r = await dbCall('GET', 'finances/' + room + '/' + encodeURIComponent(gid));
+        if(!r.ok) throw new Error('statut ' + r.status);
+        const v = (await r.json()) || {};
+        Object.keys(v).forEach(eid => { flat[eid] = v[eid]; });
+      }
+    }
+    fin = flat;
     finState = 'ok';
   }catch(e){ finState = 'err'; }
   if(idle() && (ui.view === 'concerts' || ui.view === 'event')) render();
 }
 async function finSave(eid){
-  if(!sync || !isRoomAdmin()) return;
+  const ev = event(eid);
+  if(!sync || !ev || !canFin(ev.groupId)) return;
   try{
-    const r = await dbCall('PUT', 'finances/' + encodeURIComponent(sync.room) + '/' + eid, fin[eid] || null);
+    const r = await dbCall('PUT', 'finances/' + encodeURIComponent(sync.room) + '/' + encodeURIComponent(ev.groupId) + '/' + eid, fin[eid] || null);
     if(!r.ok) throw new Error('statut ' + r.status);
   }catch(e){ alert("Enregistrement des finances impossible (" + ((e && e.message) || e) + "). Vérifie la connexion, puis réessaie."); }
+}
+async function loadFinAccess(){
+  if(!sync || !fbAuth || !fbAuth.currentUser || !myMember) return;
+  const room = encodeURIComponent(sync.room);
+  try{
+    if(isRoomAdmin()){
+      const r = await dbCall('GET', 'financeAccess/' + room); if(!r.ok) return;
+      finAccessAll = (await r.json()) || {};
+    } else {
+      const r = await dbCall('GET', 'financeAccess/' + room + '/' + encodeURIComponent(myMember.userId)); if(!r.ok) return;
+      const v = (await r.json()) || {}, next = {};
+      Object.keys(v).forEach(k => { if(v[k] === true) next[k] = true; });
+      if(JSON.stringify(next) !== JSON.stringify(finGroups)){ finGroups = next; finState = 'idle'; if(idle()) render(); }
+    }
+  }catch(e){}
+}
+async function toggleFinAccess(gid, userId){
+  if(!isRoomAdmin() || !sync) return;
+  const u = user(userId), g = group(gid); if(!u || !g) return;
+  const on = finAccessOn(userId, gid);
+  const msg = on
+    ? "Retirer à « " + u.name + " » l'accès aux finances de « " + g.name + " » ?"
+    : "Donner à « " + u.name + " » l'accès aux finances de « " + g.name + " » ?\n\nIl pourra voir et modifier les cachets, frais et répartitions des concerts de ce groupe uniquement.";
+  if(!confirm(msg)) return;
+  try{
+    const path = 'financeAccess/' + encodeURIComponent(sync.room) + '/' + encodeURIComponent(userId) + '/' + encodeURIComponent(gid);
+    const r = on ? await dbCall('DELETE', path) : await dbCall('PUT', path, true);
+    if(!r.ok) throw new Error('statut ' + r.status);
+    finAccessAll[userId] = finAccessAll[userId] || {};
+    if(on) delete finAccessAll[userId][gid]; else finAccessAll[userId][gid] = true;
+    render();
+  }catch(e){
+    alert("Impossible (" + ((e && e.message) || e) + "). Vérifie que les nouvelles règles Firebase sont bien publiées.");
+  }
+}
+function bindFinAccess(){
+  $$('[data-fin-access]').forEach(b => b.addEventListener('click', () => {
+    const [gid, uid_] = b.dataset.finAccess.split(':');
+    toggleFinAccess(gid, uid_);
+  }));
 }
 function finMut(eid, fn){
   const next = JSON.parse(JSON.stringify(fin[eid] || {}));
@@ -1983,9 +2046,9 @@ function finCalc(e){
 }
 
 function renderConcertFinance(e){
-  if(!isRoomAdmin()) return '';
+  if(!canFin(e.groupId)) return '';
   finLoad();
-  const title = `<h2>💶 Cachet &amp; répartition <span class="badge" style="margin-left:8px">🔒 visible par toi seul</span></h2>`;
+  const title = `<h2>💶 Cachet &amp; répartition <span class="badge" style="margin-left:8px">🔒 accès restreint</span></h2>`;
   if(finState === 'idle' || finState === 'loading') return title + `<div class="card muted small">Chargement…</div>`;
   if(finState === 'err') return title + `<div class="card"><div class="small" style="color:var(--danger)">Impossible de charger les finances. Vérifie la connexion et que les règles Firebase à jour sont publiées.</div><button class="btn sm" data-fin-retry style="margin-top:8px">Réessayer</button></div>`;
   const c = finCalc(e), f = c.f, g = group(e.groupId);
@@ -2061,7 +2124,7 @@ function concertsList(){
 }
 function exportFinanceCsv(){
   const rows = [['Date','Groupe','Lieu','Cachet brut','Frais','Mise en caisse','Cachet reçu','Musicien','Part','Payé']];
-  concertsList().sort((a,b) => a.date.localeCompare(b.date)).forEach(e => {
+  concertsList().filter(e => canFin(e.groupId)).sort((a,b) => a.date.localeCompare(b.date)).forEach(e => {
     const c = finCalc(e), g = group(e.groupId);
     if(!c.f.cachet && !c.f.expenses.length) return;
     const base = [e.date, g ? g.name : '', e.location || '', c.f.cachet, c.frais, c.f.cash, c.f.received ? 'oui' : 'non'];
@@ -2078,7 +2141,7 @@ function exportFinanceCsv(){
 
 function renderConcerts(){
   const today = todayISO();
-  const admin = isRoomAdmin();
+  const admin = canFinAny();
   if(admin) finLoad();
   const all = concertsList();
   const up = all.filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date) || (a.start||'').localeCompare(b.start||''));
@@ -2091,7 +2154,7 @@ function renderConcerts(){
   if(admin){
     if(finState === 'ok'){
       let toCash = 0, cashed = 0, frais = 0, owed = 0; const perUser = {};
-      all.forEach(e => {
+      all.filter(e => canFin(e.groupId)).forEach(e => {
         const c = finCalc(e);
         frais += c.frais;
         if(c.f.received) cashed += c.f.cachet; else toCash += c.f.cachet;
@@ -2099,7 +2162,7 @@ function renderConcerts(){
       });
       const owedRows = Object.keys(perUser).filter(id => perUser[id] > 0).map(id => { const u = user(id); return `<span class="chip">${esc(u ? u.name : id)} · ${eur(perUser[id])}</span>`; }).join(' ');
       money = `
-        <h2>💶 Finances <span class="badge" style="margin-left:8px">🔒 toi seul</span>
+        <h2>💶 Finances <span class="badge" style="margin-left:8px">🔒 accès restreint</span>
           <button class="btn sm" data-fin-csv style="float:right">⬇️ Export CSV</button></h2>
         <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
           ${kpi(eur(toCash), 'à encaisser')}${kpi(eur(cashed), 'encaissé')}${kpi(eur(frais), 'frais')}${kpi(eur(owed), 'à reverser aux musiciens', owed ? 'var(--warn)' : '')}
@@ -2145,7 +2208,7 @@ function renderConcertCard(e, isPast){
     chips.push(techN ? ok(true, 'Fiche technique : ' + techN + ' élément' + (techN > 1 ? 's' : '')) : ok(false, 'Fiche technique vide'));
     if(cl.length) chips.push(ok(clDone === cl.length, 'À faire ' + clDone + '/' + cl.length));
   }
-  if(isRoomAdmin() && finState === 'ok'){
+  if(canFin(e.groupId) && finState === 'ok'){
     const c = finCalc(e);
     chips.push(c.f.cachet ? ok(c.f.received, 'Cachet ' + eur(c.f.cachet) + (c.f.received ? ' reçu' : ' à encaisser')) : ok(false, 'Cachet à saisir'));
   }
@@ -2483,6 +2546,179 @@ function renderGroupWork(g){
     </div>`;
 }
 
+/* ============ ASSISTANT D'ORDRE DE SETLIST ============ */
+const KEY_PC = {C:0, D:2, E:4, F:5, G:7, A:9, B:11};
+function keyInfo(k){
+  const m = String(k || '').trim().match(/^([A-Ga-g])([#b♯♭]?)\s*(minor|mineur|min|m(?!aj)|-)?/);
+  if(!m) return null;
+  let pc = KEY_PC[m[1].toUpperCase()];
+  if(m[2] === '#' || m[2] === '♯') pc += 1; else if(m[2] === 'b' || m[2] === '♭') pc -= 1;
+  pc = (pc + 12) % 12;
+  const rel = m[3] ? (pc + 3) % 12 : pc;          // tonalité majeure relative
+  return {fifths: (rel * 7) % 12};                // position sur le cercle des quintes
+}
+function keyDist(a, b){
+  if(!a || !b) return 0;
+  const d = Math.abs(a.fifths - b.fifths);
+  return Math.min(d, 12 - d) / 6;                 // 0 (même famille) à 1 (opposées)
+}
+function setlistEnergy(songs){
+  const bpms = songs.map(x => +x.bpm).filter(v => v > 0);
+  const mn = Math.min(...bpms), mx = Math.max(...bpms);
+  return songs.map(x => {
+    const e = parseInt(x.energy);
+    if(e >= 1 && e <= 5) return (e - 1) / 4;
+    const b = +x.bpm;
+    if(b > 0 && mx > mn) return (b - mn) / (mx - mn);
+    return 0.5;
+  });
+}
+function energyTarget(mode, t){
+  if(mode === 'crescendo') return t;
+  if(mode === 'fluide') return 0.3 + 0.4 * t;   // légère montée, poids faible : l'enchaînement prime
+  if(mode === 'arc') return t < 0.6 ? 0.85 - 0.45 * Math.sin(Math.PI * t / 0.6) : 0.85 + 0.15 * ((t - 0.6) / 0.4);
+  return null;
+}
+function orderCost(o, E, K, B, mode){
+  const n = o.length; let c = 0;
+  for(let i = 0; i < n; i++){
+    const tg = energyTarget(mode, n > 1 ? i / (n - 1) : 0);
+    if(tg !== null){ const d = E[o[i]] - tg; c += (mode === 'fluide' ? 1 : 5) * d * d; }
+    if(i > 0){
+      const a = o[i-1], b = o[i];
+      c += 0.6 * keyDist(K[a], K[b]);
+      if(B[a] > 0 && B[b] > 0) c += 0.5 * Math.min(1.5, Math.abs(B[a] - B[b]) / 40);
+      if(mode === 'fluide') c += 1.2 * Math.abs(E[a] - E[b]);
+    }
+  }
+  return c;
+}
+function mulberry(a){
+  return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+function rankNorm(E){
+  const n = E.length; if(n < 2) return E.slice();
+  const idx = [...Array(n).keys()].sort((a, b) => E[a] - E[b]);
+  const r = new Array(n);
+  let i = 0;
+  while(i < n){
+    let j = i; while(j + 1 < n && Math.abs(E[idx[j+1]] - E[idx[i]]) < 1e-9) j++;
+    const avg = (i + j) / 2;
+    for(let k = i; k <= j; k++) r[idx[k]] = avg / (n - 1);
+    i = j + 1;
+  }
+  return r;
+}
+function proposeOrder(songs, mode, lockFirst, lockLast, seed){
+  const n = songs.length;
+  const E = setlistEnergy(songs), K = songs.map(x => keyInfo(x.key)), B = songs.map(x => +x.bpm || 0);
+  const rnd = mulberry(seed * 7919 + 13);
+  const Er = rankNorm(E);                                       // l'énergie est comparée au reste du set (rang), pas dans l'absolu
+  const Ew = seed ? Er.map(v => v + (rnd() - 0.5) * 0.16) : Er; // petite variation pour les « autres propositions »
+  const lo = lockFirst ? 1 : 0, hi = lockLast ? n - 2 : n - 1;
+  const cost = o => orderCost(o, Ew, K, B, mode);
+  let best = null, bestC = Infinity;
+  for(let r = 0; r < 8; r++){
+    const o = [...Array(n).keys()];
+    const mid = o.slice(lo, hi + 1);
+    if(r === 0 && energyTarget(mode, 0) !== null){
+      const pos = mid.map((_, k) => lo + k).sort((a, b) => energyTarget(mode, a / (n - 1)) - energyTarget(mode, b / (n - 1)));
+      const sg = mid.slice().sort((a, b) => Ew[a] - Ew[b]);
+      pos.forEach((p, k) => { o[p] = sg[k]; });
+    } else {
+      for(let i = mid.length - 1; i > 0; i--){ const j = Math.floor(rnd() * (i + 1)); [mid[i], mid[j]] = [mid[j], mid[i]]; }
+      mid.forEach((v, k) => { o[lo + k] = v; });
+    }
+    let c = cost(o), improved = true, guard = 0;
+    while(improved && guard++ < 60){
+      improved = false;
+      for(let i = lo; i <= hi; i++) for(let j = i + 1; j <= hi; j++){
+        [o[i], o[j]] = [o[j], o[i]];
+        const c2 = cost(o);
+        if(c2 < c - 1e-9){ c = c2; improved = true; } else [o[i], o[j]] = [o[j], o[i]];
+      }
+      for(let i = lo; i <= hi; i++) for(let j = lo; j <= hi; j++){
+        if(i === j) continue;
+        const x = o.splice(i, 1)[0]; o.splice(j, 0, x);
+        const c2 = cost(o);
+        if(c2 < c - 1e-9){ c = c2; improved = true; } else { const y = o.splice(j, 1)[0]; o.splice(i, 0, y); }
+      }
+    }
+    if(c < bestC - 1e-9){ bestC = c; best = o.slice(); }
+  }
+  return {order: best, E, K, B};
+}
+function orderPreviewHtml(songs, res){
+  const {order, E, K, B} = res;
+  const unknown = songs.filter(x => !(parseInt(x.energy) >= 1) && !(+x.bpm > 0)).length;
+  const rows = order.map((idx, i) => {
+    const x = songs[idx];
+    let warn = '';
+    if(i > 0){
+      const a = order[i-1];
+      const w = [];
+      if(keyDist(K[a], K[idx]) >= 0.67) w.push('saut de tonalité');
+      if(B[a] > 0 && B[idx] > 0 && Math.abs(B[a] - B[idx]) >= 40) w.push('saut de tempo');
+      if(w.length) warn = `<div class="small" style="color:var(--warn)">⚠ ${w.join(' · ')}</div>`;
+    }
+    const meta = [x.key, x.bpm ? x.bpm + ' BPM' : ''].filter(Boolean).map(esc).join(' · ');
+    return `<div class="setlist-item">
+      <span class="num">${i + 1}</span>
+      <div class="grow" style="min-width:0">
+        <div style="font-weight:600">${esc(x.title)} <span class="muted small">${meta}</span></div>
+        <div style="height:6px;background:var(--panel);border-radius:4px;margin-top:5px"><div style="height:6px;width:${Math.max(6, Math.round(E[idx] * 100))}%;background:var(--accent);border-radius:4px"></div></div>
+        ${warn}
+      </div>
+    </div>`;
+  }).join('');
+  return `${rows}
+    ${unknown ? `<div class="muted small" style="margin-top:6px">${unknown} morceau${unknown > 1 ? 'x' : ''} sans BPM ni énergie : ${unknown > 1 ? 'placés' : 'placé'} au milieu de la courbe.</div>` : ''}
+    <div class="muted small" style="margin-top:6px">La barre bleue montre l'énergie de chaque morceau. Rien n'est modifié tant que tu n'appuies pas sur « Appliquer cet ordre ».</div>`;
+}
+function orderBtn(e, isRep){
+  if(isRep) return '';
+  const n = (e.setlist || []).filter(id => song(id)).length;
+  if(n < 3) return '';
+  return `<div style="margin-bottom:10px"><button class="btn sm" data-order-assist="${e.id}">✨ Proposer un ordre</button></div>`;
+}
+function openOrderModal(eid){
+  const e = event(eid); if(!e) return;
+  const songs = (e.setlist || []).map(id => song(id)).filter(Boolean);
+  if(songs.length < 3){ alert('Ajoute au moins 3 morceaux à la setlist.'); return; }
+  const st = {seed: 0};
+  openModal({
+    title: 'Proposer un ordre',
+    submitLabel: 'Appliquer cet ordre',
+    body: `<p class="sub" style="margin:0">L'ordre est calculé d'après l'énergie de chaque morceau (champ « Énergie » de la fiche, sinon le BPM) et d'après la proximité des tonalités et des tempos entre deux morceaux voisins.</p>
+      <div class="field"><label>Forme du set</label>
+        <select id="ord-mode">
+          <option value="arc">Arc de concert : ouverture dynamique, respiration, finale puissante</option>
+          <option value="crescendo">Crescendo : de plus en plus intense</option>
+          <option value="fluide">Enchaînement fluide : transitions douces</option>
+        </select></div>
+      <label class="check-row"><input type="checkbox" id="ord-first"> <span>Garder le 1er morceau en premier</span></label>
+      <label class="check-row"><input type="checkbox" id="ord-last"> <span>Garder le dernier morceau en dernier</span></label>
+      <div><button type="button" class="btn sm" id="ord-again">🔀 Autre proposition</button></div>
+      <div id="ord-prev"></div>`,
+    onSubmit: () => {
+      const ev = event(eid); if(!ev || !window._pupOrderIds) return;
+      ev.setlist = window._pupOrderIds.slice();
+      save(); render();
+    }
+  });
+  const refresh = () => {
+    const res = proposeOrder(songs, $('#ord-mode').value, $('#ord-first').checked, $('#ord-last').checked, st.seed);
+    window._pupOrderIds = res.order.map(i => songs[i].id);
+    $('#ord-prev').innerHTML = orderPreviewHtml(songs, res);
+  };
+  ['#ord-mode', '#ord-first', '#ord-last'].forEach(sel => $(sel).addEventListener('change', () => { st.seed = 0; refresh(); }));
+  $('#ord-again').addEventListener('click', () => { st.seed++; refresh(); });
+  refresh();
+}
+function bindOrder(){
+  $$('[data-order-assist]').forEach(b => b.addEventListener('click', () => openOrderModal(b.dataset.orderAssist)));
+}
+
 /* ============ À RÉVISER AVANT LA RÉPÈTE ============ */
 // Chaque musicien coche ses morceaux dans SA fiche (collection « reviews », une par personne et par répétition) :
 // deux personnes qui cochent en même temps ne s'écrasent donc jamais.
@@ -2650,11 +2886,13 @@ function renderGroupMembers(g){
               <div style="font-weight:600">${esc(u.name)} ${u.id===ui.currentUserId?'<span class="muted small">(toi)</span>':''}</div>
              <div class="sub">${esc(m.instrument || u.instruments || '—')}</div>
             </div>
+            ${finAccessOn(u.id,g.id)?'<span class="badge">💶 finances</span>':''}
             <span class="badge">${m.role==='admin'?'Admin':'Membre'}</span>
           </div>
         ${adm ? `<div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap">
   <button class="btn sm" data-member-instrument="${g.id}:${u.id}">Instrument</button>
             ${isRoomAdmin()?`<button class="btn sm primary" data-member-invite="${u.id}">Inviter</button>`:''}
+            ${isRoomAdmin()?`<button class="btn sm" data-fin-access="${g.id}:${u.id}">${finAccessOn(u.id,g.id)?'💶 Retirer l\'accès finances':'💶 Accès finances'}</button>`:''}
   <button class="btn sm" data-member-color="${u.id}">Couleur</button>
   <button class="btn sm" data-member-role="${g.id}:${u.id}">${m.role==='admin'?'Rendre membre':'Passer admin'}</button>
   <button class="btn sm danger" data-member-remove="${g.id}:${u.id}">Retirer</button>
@@ -3004,6 +3242,7 @@ const slEmpty = isRep ? 'Aucun morceau à travailler en priorité.' : 'Aucun mor
 
        <h2>${slTitle} ${setlist.length ? `<span style="float:right;display:flex;gap:6px"><button class="btn sm" data-setlist-pdf="${e.id}">📄 PDF</button><button class="btn sm primary" data-stage="${e.id}">🎤 Mode scène</button></span>` : ''}</h2>
            ${setlistSummary(e)}
+    ${orderBtn(e, isRep)}
     <div class="card">
       ${setlist.length ? setlist.map((s,i)=>`
         <div class="setlist-item">
@@ -3932,6 +4171,8 @@ $$('[data-member-instrument]').forEach(b=>b.addEventListener('click',()=>{
   bindSetlistPdf();
   bindRevise();
   bindRelance();
+  bindOrder();
+  bindFinAccess();
 
   $$('[data-group-tab]').forEach(b=>b.addEventListener('click',()=>{
     ui.tab = b.dataset.groupTab; render();
@@ -4532,6 +4773,8 @@ function openSongModal(gid, sid){
       </div>
            <div class="field"><label>Durée (min:sec)</label>
         <input name="duration" value="${esc(s?.duration||'')}" placeholder="4:30"></div>
+      <div class="field"><label>Énergie (facultatif)</label>
+        <select name="energy"><option value="">—</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${String(s?.energy||'')===String(n)?'selected':''}>${n} — ${['calme','posé','moyen','soutenu','explosif'][n-1]}</option>`).join('')}</select></div>
       <div class="field"><label>Statut</label>
         <select name="status">
           ${SONG_STATUSES.map(x=>`<option value="${x.id}" ${x.id===(s?.status||'idee')?'selected':''}>${x.label}</option>`).join('')}
@@ -4860,7 +5103,7 @@ function openCopySongModal(sid){
         data.songs.push({
           id: uid('s'), groupId: g.id, title: s.title, status: s.status,
           key: s.key||'', bpm: s.bpm||null, structure: s.structure||'',
-                    lyrics: s.lyrics||'', chords: s.chords||'', notes: s.notes||'', duration: s.duration||'',
+                    lyrics: s.lyrics||'', chords: s.chords||'', notes: s.notes||'', duration: s.duration||'', energy: s.energy||'',
           visibility:'shared', createdBy: ui.currentUserId, createdAt: todayISO(),
         });
         done.push(g.name);
@@ -5212,7 +5455,7 @@ if(fbAuth){
   fbAuth.onAuthStateChanged(async u => {
     fbUser = u;
     if(!u){
-      identityPending = false; myMember = null; ui.currentUserId = null; fin = {}; finState = 'idle';
+      identityPending = false; myMember = null; ui.currentUserId = null; fin = {}; finState = 'idle'; finGroups = {}; finAccessAll = {};
       localStorage.removeItem(ME_KEY); localStorage.removeItem(ADMIN_KEY);
       render();
       if(localStorage.getItem(INVITE_KEY)){ await autoClaimPending(); render(); }
@@ -5238,6 +5481,7 @@ if(fbAuth){
     else if(!m){ ui.currentUserId = null; localStorage.removeItem(ME_KEY); }
     render();
     if(sync) syncTick();
+    loadFinAccess();
   });
     });
 }
@@ -5270,6 +5514,7 @@ function showUpdateBanner(){
 }
 
 setInterval(checkVersion, 30000);
+setInterval(() => { if(myMember) loadFinAccess(); }, 60000);
 setTimeout(checkVersion, 3000);
 
 /* ============ SON DU SPLASH (synthé électro) ============ */
