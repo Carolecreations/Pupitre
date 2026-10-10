@@ -1266,7 +1266,12 @@ function renderShell(content){
         <strong>Pupitre</strong>
         <div style="width:32px"></div>
       </div>
-      <div class="content">${content}</div>
+     <div class="content">
+  ${isReadOnly() ? `<div class="card" style="border-color:var(--accent);margin-bottom:14px;padding:10px 14px">
+    <span class="small"><strong>👁️ Mode observation</strong> — aucune modification ne sera enregistrée. Tu peux cliquer et naviguer librement.</span>
+  </div>` : ''}
+  ${content}
+</div>
     </main>
   </div>`;
 }
