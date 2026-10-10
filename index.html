@@ -72,6 +72,9 @@
   .group-item:hover{background:var(--panel2);color:var(--text)}
   .group-item.active{background:var(--panel2);color:var(--text)}
   .group-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .sw-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .sw{width:36px;height:36px;border-radius:50%;border:2px solid transparent;padding:0}
+  .sw.sel{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
   .user-box{margin-top:auto;padding:12px;border-top:1px solid var(--border);
     display:flex;align-items:center;gap:10px}
   .avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;
@@ -3607,7 +3610,7 @@ if(uc) uc.addEventListener('click', ()=>{
     body:`
       <p class="sub" style="margin:0">Cette couleur apparaît à côté de ton nom dans toute l'appli.</p>
       <div class="field"><label>Couleur</label>
-        <input type="color" name="color" value="${me.color}" style="height:60px"></div>
+        ${colorField(me.color)}</div>
     `,
     onSubmit: fd=>{
       const target = data.users.find(x => x.id === ui.currentUserId);
@@ -3649,7 +3652,7 @@ $$('[data-member-color]').forEach(b=>b.addEventListener('click',()=>{
     title:'Couleur de '+u.name,
     body:`
       <div class="field"><label>Couleur</label>
-        <input type="color" name="color" value="${u.color}" style="height:60px"></div>
+        ${colorField(u.color)}</div>
     `,
     onSubmit: fd=>{
       u.color = fd.color; save(); render();
@@ -4119,6 +4122,18 @@ async function openCleanupModal(){
   };
 }
 function closeModal(){ $('#modal-root').innerHTML=''; }
+const COLOR_CHOICES=['#6366f1','#8b5cf6','#ec4899','#ef4444','#f97316','#f59e0b','#eab308','#10b981','#14b8a6','#06b6d4','#3b82f6','#94a3b8'];
+function colorField(cur){
+  let c=String(cur||'').toLowerCase(); if(!/^#[0-9a-f]{6}$/.test(c)) c='#6366f1';
+  return `<div class="sw-row">${COLOR_CHOICES.map(x=>`<button type="button" class="sw${x===c?' sel':''}" data-sw="${x}" style="background:${x}" aria-label="Couleur ${x}"></button>`).join('')}</div>
+    <input type="color" name="color" value="${c}" style="height:36px">`;
+}
+document.addEventListener('click', e=>{
+  const b = e.target.closest && e.target.closest('.sw'); if(!b) return;
+  const f = b.closest('.field'); const inp = f && f.querySelector('input[type=color]'); if(!inp) return;
+  inp.value = b.dataset.sw;
+  f.querySelectorAll('.sw').forEach(x=>x.classList.toggle('sel', x===b));
+});
 function openModal({title, body, onSubmit, submitLabel='Enregistrer'}){
   const root = $('#modal-root');
   root.innerHTML = `
@@ -4203,7 +4218,7 @@ function openUserEditModal(userId){
       <div class="field"><label>Instruments (par défaut, tous groupes)</label>
         <input name="instruments" value="${esc(u.instruments||'')}" placeholder="Compo, guitare, machines, chant…"></div>
       <div class="field"><label>Couleur</label>
-        <input type="color" name="color" value="${u.color||'#6366f1'}" style="height:40px"></div>
+        ${colorField(u.color||'#6366f1')}</div>
       <p class="sub" style="margin:0">
         💡 Pour un instrument <strong>différent selon le groupe</strong> :
         ouvre le groupe → onglet <em>Membres</em> → bouton « Instrument »
@@ -4231,7 +4246,7 @@ function openUserModal(gid){
       <div class="field"><label>Prénom / nom</label><input name="name" required></div>
       <div class="field"><label>Instruments</label><input name="instruments" placeholder="Batterie, chant…"></div>
       <div class="field"><label>Couleur</label>
-        <input type="color" name="color" value="${palette[data.users.length%palette.length]}" style="height:40px"></div>`,
+        ${colorField(palette[data.users.length%palette.length])}</div>`,
     onSubmit: fd=>{
       const name = fd.name.trim();
       const initials = name.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase() || name.slice(0,2).toUpperCase();
