@@ -84,7 +84,11 @@
   input.cs::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid #0f1115;box-shadow:0 0 0 2px #fff}
   input.cs::-moz-range-track{background:transparent}
   .user-box{margin-top:auto;padding:12px;border-top:1px solid var(--border);
-    display:flex;align-items:center;gap:10px}
+  display:flex;flex-direction:column;gap:8px}
+.user-top{display:flex;align-items:center;gap:10px;min-width:0}
+.user-actions{display:flex;gap:6px}
+.user-actions .btn{flex:1;justify-content:center;padding:7px 6px;font-size:12px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;
     font-weight:700;color:#fff;font-size:13px;flex-shrink:0}
   .user-meta{flex:1;min-width:0}
