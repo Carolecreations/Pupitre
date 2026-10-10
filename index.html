@@ -536,6 +536,12 @@ try{ sync=JSON.parse(localStorage.getItem(SYNC_KEY)); }catch(e){}
 })();
 let ver=0, dirty=false, busy=false, ready=false, last={}, tm=null, syncState='none', pendingRender=false;
 function save(){
+  if(isReadOnly()){
+    alert('👁️ Mode observation — les modifications sont désactivées.\n\nRien n\'a été enregistré.');
+    data = loadData();
+    render();
+    return;
+  }
   localStorage.setItem(KEY, JSON.stringify(data));
   if(sync){ ver++; dirty=true; clearTimeout(tm); tm=setTimeout(syncTick,400); }
 }
@@ -840,8 +846,21 @@ const eventsOf = gid => data.events.filter(e=>e.groupId===gid);
   const contactsOf = gid => (data.contacts||[])
   .filter(c=>c.groupId===gid)
   .sort((a,b)=>(a.name||'').localeCompare(b.name||'','fr',{sensitivity:'base'}));
-const myGroups = () => data.groups.filter(g => g.memberships.some(m=>m.userId===ui.currentUserId));
-const isAdmin  = (gid,uid_=ui.currentUserId) => {
+function isInspector(){
+  const me = user(ui.currentUserId);
+  return !!(me && me.inspector);
+}
+function isReadOnly(){
+  const me = user(ui.currentUserId);
+  return me && me.inspector === 'read';
+}
+const myGroups = () => {
+  if(isInspector()) return data.groups;
+  return data.groups.filter(g => g.memberships.some(m=>m.userId===ui.currentUserId));
+};
+const isAdmin = (gid, uid_=ui.currentUserId) => {
+  const u = user(uid_);
+  if(u && u.inspector && u.inspector !== 'read') return true;
   const g = group(gid); return g && g.memberships.some(m=>m.userId===uid_ && m.role==='admin');
 };
 const gFilter = g => !ui.dashGroup || g.id===ui.dashGroup;
