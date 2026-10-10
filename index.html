@@ -3039,8 +3039,16 @@ async function putImage(id, dataUrl){
 }
 /* ============ SUPABASE STORAGE — UPLOAD AUDIO ============ */
 
+const AUDIO_MAX_MB = 50;
 async function uploadAudioToSupabase(file){
   if(!sync) throw new Error('Synchro désactivée.');
+  if(file.size > AUDIO_MAX_MB*1024*1024){
+    const mo = (file.size/1024/1024).toFixed(1).replace('.',',');
+    throw new Error('Fichier trop lourd (' + mo + ' Mo, maximum ' + AUDIO_MAX_MB + ' Mo). Exporte-le en MP3 ou M4A, bien plus légers qu\'un WAV.');
+  }
+  if(file.type && !/^(audio\/|video\/mp4)/.test(file.type)){
+    throw new Error('Ce fichier n\'est pas un fichier audio (' + file.type + '). Formats acceptés : MP3, M4A, WAV, MP4.');
+  }
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
   const path = sync.room + '/' + Date.now() + '_' + safeName;
   const url = SUPABASE_URL + '/storage/v1/object/audio/' + path;
