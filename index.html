@@ -1340,6 +1340,8 @@ function renderDashboard(){
         <p class="sub">Vue unifiée de tes ${myGroups().length} groupes.</p>
     ${renderGroupFilter()}
 
+    ${renderReminders()}
+
     ${renderRevise()}
 
     <h2>Prochains événements</h2>
@@ -2289,6 +2291,99 @@ function bindSetlistPdf(){
   $$('[data-setlist-pdf]').forEach(b => b.addEventListener('click', () => openSetlistPdfModal(b.dataset.setlistPdf)));
 }
 
+/* ============ RAPPELS ET RÉPONSES ATTENDUES (tableau de bord) + RELANCE ============ */
+const myAvail = e => (e.availability || {})[ui.currentUserId] || '';
+function availButtons(e){
+  const val = myAvail(e);
+  return `<div class="avail-btns" style="margin-left:0;flex-wrap:wrap">${AVAIL.map(a=>`<button class="btn sm ${val===a.id?'on':''}" data-avail="${e.id}:${ui.currentUserId}:${a.id}">${a.label}</button>`).join('')}</div>`;
+}
+function reminderCard(e, soon){
+  const g = group(e.groupId), t = typeOf(e.type), val = myAvail(e);
+  return `<div class="card">
+    <div class="row between" style="flex-wrap:wrap;gap:8px">
+      <div class="row" style="min-width:0">
+        <span style="font-size:20px">${t.icon}</span>
+        <div>
+          <div style="font-weight:600">${esc(g.name)} — ${esc(t.label)}</div>
+          <div class="sub">${esc(fmtDate(e.date))} · ${esc(e.start||'')}${e.location?' · '+esc(e.location):''}</div>
+        </div>
+      </div>
+      <span class="badge" style="${soon?'color:var(--warn)':''}"><span class="b-dot" style="background:${g.color}"></span>${esc(fmtRelative(e.date))}</span>
+    </div>
+    <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+      <span class="small muted">${val ? 'Ta réponse :' : 'Es-tu dispo ?'}</span>
+      ${availButtons(e)}
+      <div class="spacer"></div>
+      <button class="btn ghost sm" data-open-event="${e.id}">Ouvrir</button>
+    </div>
+    ${conflictBanner(e)}
+  </div>`;
+}
+function renderReminders(){
+  const soonLimit = addDays(todayISO(), 2);
+  const all = upcomingEvents();
+  const soon = all.filter(e => e.date <= soonLimit && myAvail(e) !== 'non');
+  const soonIds = new Set(soon.map(e => e.id));
+  const wait = all.filter(e => !myAvail(e) && !soonIds.has(e.id));
+  let out = '';
+  if(soon.length) out += `<h2>⏰ Bientôt</h2>` + soon.map(e => reminderCard(e, true)).join('');
+  if(wait.length){
+    out += `<h2>✋ Ta réponse est attendue <span class="muted small">(${wait.length})</span></h2>` + wait.slice(0,5).map(e => reminderCard(e, false)).join('');
+    if(wait.length > 5) out += `<p class="sub">+ ${wait.length-5} autre${wait.length-5>1?'s':''} événement${wait.length-5>1?'s':''} sans réponse (voir le calendrier).</p>`;
+  }
+  return out;
+}
+function missingResponders(e){
+  const g = group(e.groupId); if(!g) return [];
+  const av = e.availability || {};
+  return g.memberships.map(m => user(m.userId)).filter(u => u && !av[u.id]);
+}
+function relanceBtn(e){
+  if(e.date < todayISO()) return '';
+  if(!(isAdmin(e.groupId) || isRoomAdmin())) return '';
+  const n = missingResponders(e).length; if(!n) return '';
+  return `<div style="margin:0 0 10px"><button class="btn sm" data-relance="${e.id}">📣 Relancer ceux qui n'ont pas répondu (${n})</button></div>`;
+}
+function relanceText(e){
+  const g = group(e.groupId), t = typeOf(e.type);
+  const names = missingResponders(e).map(u => u.name);
+  const plural = names.length > 1;
+  const what = {repetition:'la répétition', concert:'le concert', studio:'la session studio'}[e.type] || ("l'événement « " + t.label + " »");
+  const when = fmtDate(e.date) + (e.start ? ' à ' + e.start : '');
+  const base = location.origin + location.pathname;
+  return 'Salut ' + names.join(', ') + ' !\n\n' +
+    (plural ? 'Pouvez-vous me dire si vous êtes dispos pour ' : 'Peux-tu me dire si tu es dispo pour ') +
+    what + ' de ' + g.name + ' le ' + when + (e.location ? ' (' + e.location + ')' : '') + ' ?\n\n' +
+    'Il suffit de répondre en un clic dans Pupitre (Oui / Peut-être / Non) :\n' + base;
+}
+function openRelanceModal(eid){
+  const e = event(eid); if(!e) return;
+  window._pupRelance = relanceText(e);
+  openModal({
+    title: 'Relancer pour les disponibilités',
+    submitLabel: 'Copier le message',
+    body: `<p class="sub" style="margin:0">Message prêt à envoyer à : ${missingResponders(e).map(u => esc(u.name)).join(', ')}.</p>
+      <textarea id="relance-text" readonly style="min-height:190px">${esc(window._pupRelance)}</textarea>
+      <button type="button" class="btn" onclick="shareRelance()">📤 Partager (message, WhatsApp…)</button>`,
+    onSubmit: () => { copyRelance(); }
+  });
+}
+function shareRelance(){
+  const t = window._pupRelance || '';
+  if(navigator.share){ navigator.share({text:t}).catch(()=>{}); }
+  else alert('Partage non disponible ici. Utilise « Copier le message ».');
+}
+function copyRelance(){
+  const ta = document.getElementById('relance-text'); if(!ta) return;
+  ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length);
+  let ok = false;
+  try{ ok = document.execCommand('copy'); }catch(x){}
+  alert(ok ? 'Message copié. Colle-le dans une conversation.' : 'Copie impossible : le texte est sélectionné, touche-le et choisis « Copier ».');
+}
+function bindRelance(){
+  $$('[data-relance]').forEach(b => b.addEventListener('click', () => openRelanceModal(b.dataset.relance)));
+}
+
 /* ============ À RÉVISER AVANT LA RÉPÈTE ============ */
 // Chaque musicien coche ses morceaux dans SA fiche (collection « reviews », une par personne et par répétition) :
 // deux personnes qui cochent en même temps ne s'écrasent donc jamais.
@@ -2789,6 +2884,7 @@ const slEmpty = isRep ? 'Aucun morceau à travailler en priorité.' : 'Aucun mor
 
         <h2>Disponibilités</h2>
     ${availSummary(e,true)}
+    ${relanceBtn(e)}
     <div class="card">
       ${g.memberships.map(m=>{
         const u = user(m.userId);
@@ -3733,6 +3829,7 @@ $$('[data-member-instrument]').forEach(b=>b.addEventListener('click',()=>{
   bindFinance();
   bindSetlistPdf();
   bindRevise();
+  bindRelance();
 
   $$('[data-group-tab]').forEach(b=>b.addEventListener('click',()=>{
     ui.tab = b.dataset.groupTab; render();
