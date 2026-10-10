@@ -1232,18 +1232,21 @@ function renderShell(content){
           </button>`;
         }).join('')}
       </div>
-      <div class="user-box">
-  <button data-user-color title="Changer ma couleur" style="border:none;background:none;padding:0">
-    <div class="avatar" style="background:${me.color}">${esc(me.initials)}</div>
-  </button>
-  <div class="user-meta">
-    <div class="name">${esc(me.name)}</div>
-    <div class="sub">${esc(me.instruments||'')}</div>
+     <div class="user-box">
+  <div class="user-top">
+    <button data-user-color title="Changer ma couleur" style="border:none;background:none;padding:0;flex-shrink:0">
+      <div class="avatar" style="background:${me.color}">${esc(me.initials)}</div>
+    </button>
+    <div class="user-meta">
+      <div class="name">${esc(me.name)}</div>
+      <div class="sub">${esc(me.instruments||'')}</div>
+    </div>
   </div>
-    <button class="btn ghost sm" data-my-code title="Changer mon code personnel">🔑</button>
-    <button class="btn ghost sm" data-link-google title="Lier mon compte Google (retrouver mon accès sur un autre appareil)">🔗</button>
-  <button class="btn ghost sm" data-logout title="Se déconnecter">⎋</button>
-
+  <div class="user-actions">
+    <button class="btn ghost sm" data-my-code title="Changer mon code personnel">🔑 Code</button>
+    <button class="btn ghost sm" data-link-google title="Lier mon compte Google">🔗 Google</button>
+    <button class="btn ghost sm" data-logout title="Se déconnecter">⎋ Quitter</button>
+  </div>
 </div>
     </aside>
     <main class="main">
