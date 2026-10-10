@@ -50,9 +50,20 @@
   #root{min-height:100vh;display:flex;flex-direction:column}
   .shell{display:flex;flex:1;min-height:100vh}
   .sidebar{
-    width:250px;background:var(--panel);border-right:1px solid var(--border);
-    display:flex;flex-direction:column;flex-shrink:0;
-  }
+  width:250px;background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;
+  max-height:100vh;overflow:hidden;
+}
+.sidebar-scroll{
+  flex:1;min-height:0;
+  overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+}
+.sidebar-scroll::-webkit-scrollbar{width:6px}
+.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.sidebar-scroll::-webkit-scrollbar-track{background:transparent}
   .brand{padding:18px 18px 14px;font-weight:700;font-size:18px;letter-spacing:.2px;
     display:flex;align-items:center;gap:8px}
   .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
@@ -83,8 +94,12 @@
   input.cs::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;background:#fff;border:3px solid #0f1115;box-shadow:0 0 0 2px #fff}
   input.cs::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid #0f1115;box-shadow:0 0 0 2px #fff}
   input.cs::-moz-range-track{background:transparent}
-  .user-box{margin-top:auto;padding:12px;border-top:1px solid var(--border);
-    display:flex;align-items:center;gap:10px}
+ .user-box{margin-top:auto;padding:12px;border-top:1px solid var(--border);
+  display:flex;flex-direction:column;gap:8px;flex-shrink:0;background:var(--panel)}
+.user-top{display:flex;align-items:center;gap:10px;min-width:0}
+.user-actions{display:flex;gap:6px}
+.user-actions .btn{flex:1;justify-content:center;padding:7px 6px;font-size:12px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;
     font-weight:700;color:#fff;font-size:13px;flex-shrink:0}
   .user-meta{flex:1;min-width:0}
@@ -1203,6 +1218,7 @@ function renderShell(content){
   <div class="shell">
     ${ui.sidebarOpen ? '<div class="backdrop" data-close-sidebar></div>' : ''}
     <aside class="sidebar ${ui.sidebarOpen?'open':''}">
+    <div class="sidebar-scroll">
       <div class="brand"><span class="dot"></span> Pupitre</div>
       <nav class="nav">
         <button class="nav-item ${ui.view==='dashboard'?'active':''}" data-nav="dashboard">
@@ -1245,6 +1261,7 @@ function renderShell(content){
             <span>${esc(g.name)}</span>
           </button>`;
         }).join('')}
+      </div>
       </div>
       <div class="user-box">
   <button data-user-color title="Changer ma couleur" style="border:none;background:none;padding:0">
