@@ -2384,6 +2384,97 @@ function bindRelance(){
   $$('[data-relance]').forEach(b => b.addEventListener('click', () => openRelanceModal(b.dataset.relance)));
 }
 
+/* ============ SUIVI DU TRAVAIL PAR MORCEAU ============ */
+// Un morceau est « travaillé » quand il figure dans la liste « à travailler » d'une répétition déjà passée.
+function isDone(e){
+  const t = todayISO();
+  if(e.date < t) return true;
+  if(e.date > t) return false;
+  if(!e.start) return false;
+  const n = new Date();
+  return e.start <= String(n.getHours()).padStart(2,'0') + ':' + String(n.getMinutes()).padStart(2,'0');
+}
+function daysBetween(a, b){
+  return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
+}
+function fmtAgo(d){
+  if(d <= 0) return "aujourd'hui";
+  if(d === 1) return 'hier';
+  if(d < 14) return 'il y a ' + d + ' jours';
+  if(d < 60) return 'il y a ' + Math.round(d / 7) + ' semaines';
+  const m = Math.round(d / 30.4);
+  if(m < 12) return 'il y a ' + m + ' mois';
+  const y = Math.floor(m / 12), r = m % 12;
+  return 'il y a ' + y + ' an' + (y > 1 ? 's' : '') + (r ? ' et ' + r + ' mois' : '');
+}
+function songWork(s){
+  const has = e => e.groupId === s.groupId && (e.setlist || []).includes(s.id);
+  const rep = data.events.filter(e => e.type === 'repetition' && has(e) && isDone(e)).sort((a, b) => a.date.localeCompare(b.date));
+  const con = data.events.filter(e => e.type === 'concert' && has(e) && isDone(e)).sort((a, b) => a.date.localeCompare(b.date));
+  const next = data.events.filter(e => e.type === 'repetition' && has(e) && !isDone(e)).sort((a, b) => a.date.localeCompare(b.date))[0] || null;
+  return {rep, con, next, last: rep.length ? rep[rep.length - 1].date : null, first: rep.length ? rep[0].date : null};
+}
+function renderSongWork(s){
+  const w = songWork(s), today = todayISO();
+  const n = w.rep.length;
+  const days = w.last ? daysBetween(w.last, today) : null;
+  const recent = w.rep.filter(e => e.date >= addDays(today, -30)).length;
+  const stale = days !== null && days > 30 && s.status !== 'archive';
+  const kpi = (v, l, c) => `<div class="card" style="margin:0;padding:12px"><div style="font-size:20px;font-weight:700;${c ? 'color:' + c : ''}">${v}</div><div class="muted small">${l}</div></div>`;
+  const since = (s.createdAt && /^\d{4}-\d{2}-\d{2}$/.test(s.createdAt)) ? daysBetween(s.createdAt, today) : null;
+  const dates = w.rep.slice(-6).reverse().map(e => esc(fmtDateShort(e.date))).join(' · ');
+  return `<div class="card">
+    <h3>📈 Travail en répétition</h3>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
+      ${kpi(n, 'répétition' + (n > 1 ? 's' : '') + ' où il était à travailler')}
+      ${kpi(days === null ? '—' : esc(fmtAgo(days)), 'dernière fois', stale ? 'var(--warn)' : '')}
+      ${kpi(recent, 'sur les 30 derniers jours')}
+      ${kpi(w.con.length, 'concert' + (w.con.length > 1 ? 's' : '') + ' joué' + (w.con.length > 1 ? 's' : ''))}
+    </div>
+    <div class="small" style="margin-top:10px;line-height:1.7">
+      ${n ? `Premier travail : ${esc(fmtDate(w.first))}.<br>Dernières répétitions : ${dates}.` : `<span class="muted">Ce morceau n'a encore été mis dans aucune liste « à travailler » d'une répétition passée.</span>`}
+      ${since !== null && since > 0 ? `<br>Dans le répertoire depuis ${since < 14 ? since + ' jour' + (since > 1 ? 's' : '') : esc(fmtAgo(since).replace('il y a ', ''))}.` : ''}
+      ${w.next ? `<br>Prévu à la répétition du ${esc(fmtDate(w.next.date))}.` : ''}
+      ${stale ? `<br><span style="color:var(--warn)">⚠ Pas travaillé depuis plus de 30 jours.</span>` : ''}
+    </div>
+    <div class="muted small" style="margin-top:8px">Calculé à partir des listes « Morceaux à travailler en priorité » des répétitions passées.</div>
+  </div>`;
+}
+function renderGroupWork(g){
+  const songs = songsOf(g.id).filter(x => x.status !== 'archive');
+  if(!songs.length) return '';
+  const today = todayISO();
+  const rows = songs.map(x => { const w = songWork(x); return {s:x, w, days: w.last ? daysBetween(w.last, today) : null}; });
+  rows.sort((a, b) => {
+    if(a.days === null && b.days === null) return (a.s.title || '').localeCompare(b.s.title || '', 'fr');
+    if(a.days === null) return -1;
+    if(b.days === null) return 1;
+    return b.days - a.days;
+  });
+  const never = rows.filter(r => r.days === null).length;
+  const stale = rows.filter(r => r.days !== null && r.days > 30).length;
+  const shown = rows.slice(0, 10);
+  return `<h2>Suivi du travail</h2>
+    <div class="card">
+      <div class="small" style="margin-bottom:8px">
+        <span style="color:${never ? 'var(--warn)' : 'var(--ok)'}"><strong>${never}</strong> jamais travaillé${never > 1 ? 's' : ''}</span> ·
+        <span style="color:${stale ? 'var(--warn)' : 'var(--ok)'}"><strong>${stale}</strong> pas depuis plus de 30 jours</span>
+      </div>
+      <div class="list">${shown.map(r => {
+        const st = statusOf(r.s.status);
+        return `<div class="li clickable" data-open-song="${r.s.id}" style="padding:8px 12px">
+          <div class="grow" style="min-width:0">
+            <div class="title">${esc(r.s.title)}</div>
+            <div class="meta"><span class="b-dot" style="background:${st.color};width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:4px"></span>${esc(st.label)} · ${r.w.rep.length} répétition${r.w.rep.length > 1 ? 's' : ''}</div>
+          </div>
+          <div class="small" style="text-align:right;color:${r.days === null || r.days > 30 ? 'var(--warn)' : 'var(--muted)'}">${r.days === null ? 'jamais travaillé' : esc(fmtAgo(r.days))}</div>
+        </div>`;
+      }).join('')}</div>
+      ${rows.length > shown.length ? `<div class="muted small" style="margin-top:8px">+ ${rows.length - shown.length} autres morceaux plus récemment travaillés.</div>` : ''}
+      <div class="muted small" style="margin-top:8px">Les morceaux les plus délaissés d'abord. Un morceau compte comme travaillé quand il est dans la liste « à travailler » d'une répétition passée.</div>
+    </div>`;
+}
+
 /* ============ À RÉVISER AVANT LA RÉPÈTE ============ */
 // Chaque musicien coche ses morceaux dans SA fiche (collection « reviews », une par personne et par répétition) :
 // deux personnes qui cochent en même temps ne s'écrasent donc jamais.
@@ -2649,6 +2740,8 @@ function renderGroupStats(g){
       ${songs.length ? SONG_STATUSES.map(st=>statBar(st.label, st.color, songs.filter(s=>s.status===st.id).length, maxS)).join('') : '<div class="muted small">Aucun morceau.</div>'}
     </div>
 
+    ${renderGroupWork(g)}
+
     <h2>Disponibilités</h2>
     <div class="card">
       ${expected
@@ -2788,6 +2881,7 @@ function renderSong(){
       <div class="small" style="white-space:pre-wrap">${esc(s.notes||'—')}</div>
     </div>
 
+          ${renderSongWork(s)}
           ${renderParts(s)}
     ${renderSongPrivate(s)}
 
