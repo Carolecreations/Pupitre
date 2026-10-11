@@ -5560,135 +5560,118 @@ setTimeout(checkVersion, 3000);
 
 /* ============ SON DU SPLASH (synthé électro) ============ */
 function splashPlaySound(ac){
-  const t0 = ac.currentTime + 0.02;
+  const t0 = ac.currentTime + 0.05;
 
   const master = ac.createGain();
-  master.gain.value = 0.34;
+  master.gain.value = 0.38;
   master.connect(ac.destination);
 
-  // Bus de réverbe court, filtré pour éviter les aigus cristallins
+  /* ==== RÉVERB (salle / cabinet) ==== */
   const rev = ac.createConvolver();
-  const len = ac.sampleRate * 1.4;
+  const len = ac.sampleRate * 1.5;
   const ir = ac.createBuffer(2, len, ac.sampleRate);
   for(let ch=0; ch<2; ch++){
     const d = ir.getChannelData(ch);
     for(let i=0; i<len; i++){
-      d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 3.2);
+      d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 3);
     }
   }
   rev.buffer = ir;
-
-  const revFilt = ac.createBiquadFilter();
-  revFilt.type = 'lowpass';
-  revFilt.frequency.value = 1400;
-  revFilt.Q.value = 0.7;
-
   const revGain = ac.createGain();
-  revGain.gain.value = 0.18;
-  rev.connect(revFilt);
-  revFilt.connect(revGain);
+  revGain.gain.value = 0.25;
+  rev.connect(revGain);
   revGain.connect(master);
 
-  /* 1. NAPPE SAW DÉTUNÉE (0 → 2s) */
-  {
-    const freqs = [110, 165, 220];
-    const filt = ac.createBiquadFilter();
-    filt.type = 'lowpass';
-    filt.frequency.setValueAtTime(320, t0);
-    filt.frequency.exponentialRampToValueAtTime(2200, t0 + 1.9);
-    filt.Q.value = 9;
+  /* ==== FUZZ FACE (distorsion Hendrix) ==== */
+  const fuzz = ac.createWaveShaper();
+  const N = 2048;
+  const curve = new Float32Array(N);
+  for(let i=0; i<N; i++){
+    const x = (i*2)/N - 1;
+    curve[i] = Math.tanh(x * 5.5);
+  }
+  fuzz.curve = curve;
+  fuzz.oversample = '4x';
+
+  /* ==== WAH-WAH ==== */
+  const wah = ac.createBiquadFilter();
+  wah.type = 'bandpass';
+  wah.Q.value = 3.5;
+
+  /* ==== CABINET (lowpass) ==== */
+  const cab = ac.createBiquadFilter();
+  cab.type = 'lowpass';
+  cab.frequency.value = 3800;
+  cab.Q.value = 0.7;
+
+  /* Chaîne fixe : fuzz → wah → cab → master + reverb */
+  fuzz.connect(wah);
+  wah.connect(cab);
+  cab.connect(master);
+  cab.connect(rev);
+
+  /* ==== Lecture d'une note / accord ==== */
+  function note(freqs, startTime, dur, opts){
+    const t = t0 + startTime;
+    const { bend = 0, wahFrom = 350, wahTo = 2200, level = 0.35 } = opts || {};
+
+    // Sweep de wah propre à chaque note
+    wah.frequency.cancelScheduledValues(t);
+    wah.frequency.setValueAtTime(wahFrom, t);
+    wah.frequency.exponentialRampToValueAtTime(wahTo, t + dur * 0.6);
+
+    // Enveloppe "pluck" (attaque vive, décroissance naturelle)
+    const env = ac.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(level, t + 0.006);
+    env.gain.exponentialRampToValueAtTime(level * 0.55, t + 0.12);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    env.connect(fuzz);
 
     freqs.forEach((f, i) => {
       const o = ac.createOscillator();
+      o.type = i === 0 ? 'sawtooth' : 'square';
+      o.frequency.setValueAtTime(f, t);
+
+      // Bend d'entrée (glissando vers la note)
+      if(bend){
+        o.frequency.setValueAtTime(f * (1 - bend), t);
+        o.frequency.exponentialRampToValueAtTime(f, t + 0.09);
+      }
+
+      // Vibrato léger — le "shake" Hendrix
+      const lfo = ac.createOscillator();
+      const lfoAmt = ac.createGain();
+      lfo.frequency.value = 5.2 + Math.random() * 1.5;
+      lfoAmt.gain.value = f * 0.007;
+      lfo.connect(lfoAmt);
+      lfoAmt.connect(o.frequency);
+      lfo.start(t);
+      lfo.stop(t + dur + 0.1);
+
+      // Mélange des harmoniques (fondamentale plus forte)
       const g = ac.createGain();
-      o.type = 'sawtooth';
-      o.frequency.value = f * (1 + (i - 1) * 0.006);
-      o.connect(g); g.connect(filt);
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.045, t0 + 0.8);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.15);
-      o.start(t0); o.stop(t0 + 2.2);
-    });
-
-    filt.connect(master);
-    filt.connect(rev);
-  }
-
-  /* 2. RISER SAW RÉSONANT (0.4 → 2s) */
-  {
-    const o = ac.createOscillator();
-    const g = ac.createGain();
-    const filt = ac.createBiquadFilter();
-    o.type = 'sawtooth';
-    o.frequency.setValueAtTime(180, t0 + 0.4);
-    o.frequency.exponentialRampToValueAtTime(580, t0 + 2.0);
-    filt.type = 'bandpass';
-    filt.frequency.setValueAtTime(500, t0 + 0.4);
-    filt.frequency.exponentialRampToValueAtTime(3200, t0 + 2.0);
-    filt.Q.value = 14;
-    o.connect(filt); filt.connect(g); g.connect(master);
-
-    g.gain.setValueAtTime(0.0001, t0 + 0.4);
-    g.gain.exponentialRampToValueAtTime(0.075, t0 + 1.7);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.05);
-    o.start(t0 + 0.4); o.stop(t0 + 2.1);
-  }
-
-  /* 3. SUB BASS (0 → 2.1s) */
-  {
-    const o = ac.createOscillator();
-    const g = ac.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(55, t0);
-    o.frequency.exponentialRampToValueAtTime(82, t0 + 1.9);
-    o.connect(g); g.connect(master);
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(0.20, t0 + 1.0);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.15);
-    o.start(t0); o.stop(t0 + 2.2);
-  }
-
-  /* 4. EXPLOSION SYNTH (2.0s) — kick + stab d'accord */
-  {
-    const tb = t0 + 2.0;
-
-    // Kick synthé : sinus 130 → 42 Hz
-    {
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      o.type = 'sine';
-      o.frequency.setValueAtTime(130, tb);
-      o.frequency.exponentialRampToValueAtTime(42, tb + 0.22);
-      o.connect(g); g.connect(master);
-      g.gain.setValueAtTime(0.0001, tb);
-      g.gain.exponentialRampToValueAtTime(0.55, tb + 0.008);
-      g.gain.exponentialRampToValueAtTime(0.0001, tb + 0.35);
-      o.start(tb); o.stop(tb + 0.4);
-    }
-
-    // Stab d'accord : 4 voix triangle douces, filtre qui se referme
-    const notes = [261.63, 392.00, 523.25, 783.99];
-    const filt = ac.createBiquadFilter();
-    filt.type = 'lowpass';
-    filt.frequency.setValueAtTime(2400, tb);
-    filt.frequency.exponentialRampToValueAtTime(700, tb + 1.5);
-    filt.Q.value = 2.5;
-    filt.connect(master);
-    filt.connect(rev);
-
-    notes.forEach((f, i) => {
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      o.type = 'triangle';
-      o.frequency.value = f;
-      o.connect(g); g.connect(filt);
-      const t = tb + i * 0.015;
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.10, t + 0.045);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.7);
-      o.start(t); o.stop(t + 1.8);
+      g.gain.value = i === 0 ? 0.65 : (i === 1 ? 0.4 : 0.25);
+      o.connect(g);
+      g.connect(env);
+      o.start(t);
+      o.stop(t + dur + 0.15);
     });
   }
+
+  /* ==== RIFF "TA - DA - DAM" (blues en La, style Hendrix) ==== */
+
+  // "ta" — E3 (mi grave), court et sec
+  note([164.81, 329.63, 494.00], 0.35, 0.32,
+       { wahFrom: 400, wahTo: 1600, level: 0.32 });
+
+  // "da" — G3, un cran plus haut
+  note([196.00, 392.00, 587.33], 0.90, 0.32,
+       { wahFrom: 500, wahTo: 1900, level: 0.34 });
+
+  // "dam" — Power chord A5 (A3 + E4 + A4 + E5), bend d'entrée, résonne longtemps
+  note([220.00, 329.63, 440.00, 659.25], 1.45, 2.6,
+       { bend: 0.06, wahFrom: 800, wahTo: 3200, level: 0.42 });
 }
 
 function playSplashSound(){
