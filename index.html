@@ -50,20 +50,9 @@
   #root{min-height:100vh;display:flex;flex-direction:column}
   .shell{display:flex;flex:1;min-height:100vh}
   .sidebar{
-  width:250px;background:var(--panel);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;flex-shrink:0;
-  max-height:100vh;overflow:hidden;
-}
-.sidebar-scroll{
-  flex:1;min-height:0;
-  overflow-y:auto;overflow-x:hidden;
-  -webkit-overflow-scrolling:touch;
-  overscroll-behavior:contain;
-  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
-}
-.sidebar-scroll::-webkit-scrollbar{width:6px}
-.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-.sidebar-scroll::-webkit-scrollbar-track{background:transparent}
+    width:250px;background:var(--panel);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;flex-shrink:0;
+  }
   .brand{padding:18px 18px 14px;font-weight:700;font-size:18px;letter-spacing:.2px;
     display:flex;align-items:center;gap:8px}
   .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
@@ -94,12 +83,8 @@
   input.cs::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;background:#fff;border:3px solid #0f1115;box-shadow:0 0 0 2px #fff}
   input.cs::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid #0f1115;box-shadow:0 0 0 2px #fff}
   input.cs::-moz-range-track{background:transparent}
- .user-box{margin-top:auto;padding:12px;border-top:1px solid var(--border);
-  display:flex;flex-direction:column;gap:8px;flex-shrink:0;background:var(--panel)}
-.user-top{display:flex;align-items:center;gap:10px;min-width:0}
-.user-actions{display:flex;gap:6px}
-.user-actions .btn{flex:1;justify-content:center;padding:7px 6px;font-size:12px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .user-box{margin-top:auto;padding:12px;border-top:1px solid var(--border);
+    display:flex;align-items:center;gap:10px}
   .avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;
     font-weight:700;color:#fff;font-size:13px;flex-shrink:0}
   .user-meta{flex:1;min-width:0}
@@ -551,12 +536,6 @@ try{ sync=JSON.parse(localStorage.getItem(SYNC_KEY)); }catch(e){}
 })();
 let ver=0, dirty=false, busy=false, ready=false, last={}, tm=null, syncState='none', pendingRender=false;
 function save(){
-  if(isReadOnly()){
-    alert('👁️ Mode observation — les modifications sont désactivées.\n\nRien n\'a été enregistré.');
-    data = loadData();
-    render();
-    return;
-  }
   localStorage.setItem(KEY, JSON.stringify(data));
   if(sync){ ver++; dirty=true; clearTimeout(tm); tm=setTimeout(syncTick,400); }
 }
@@ -861,21 +840,8 @@ const eventsOf = gid => data.events.filter(e=>e.groupId===gid);
   const contactsOf = gid => (data.contacts||[])
   .filter(c=>c.groupId===gid)
   .sort((a,b)=>(a.name||'').localeCompare(b.name||'','fr',{sensitivity:'base'}));
-function isInspector(){
-  const me = user(ui.currentUserId);
-  return !!(me && me.inspector);
-}
-function isReadOnly(){
-  const me = user(ui.currentUserId);
-  return me && me.inspector === 'read';
-}
-const myGroups = () => {
-  if(isInspector()) return data.groups;
-  return data.groups.filter(g => g.memberships.some(m=>m.userId===ui.currentUserId));
-};
-const isAdmin = (gid, uid_=ui.currentUserId) => {
-  const u = user(uid_);
-  if(u && u.inspector && u.inspector !== 'read') return true;
+const myGroups = () => data.groups.filter(g => g.memberships.some(m=>m.userId===ui.currentUserId));
+const isAdmin  = (gid,uid_=ui.currentUserId) => {
   const g = group(gid); return g && g.memberships.some(m=>m.userId===uid_ && m.role==='admin');
 };
 const gFilter = g => !ui.dashGroup || g.id===ui.dashGroup;
@@ -1218,7 +1184,6 @@ function renderShell(content){
   <div class="shell">
     ${ui.sidebarOpen ? '<div class="backdrop" data-close-sidebar></div>' : ''}
     <aside class="sidebar ${ui.sidebarOpen?'open':''}">
-    <div class="sidebar-scroll">
       <div class="brand"><span class="dot"></span> Pupitre</div>
       <nav class="nav">
         <button class="nav-item ${ui.view==='dashboard'?'active':''}" data-nav="dashboard">
@@ -1262,7 +1227,6 @@ function renderShell(content){
           </button>`;
         }).join('')}
       </div>
-      </div>
       <div class="user-box">
   <button data-user-color title="Changer ma couleur" style="border:none;background:none;padding:0">
     <div class="avatar" style="background:${me.color}">${esc(me.initials)}</div>
@@ -1283,12 +1247,7 @@ function renderShell(content){
         <strong>Pupitre</strong>
         <div style="width:32px"></div>
       </div>
-     <div class="content">
-  ${isReadOnly() ? `<div class="card" style="border-color:var(--accent);margin-bottom:14px;padding:10px 14px">
-    <span class="small"><strong>👁️ Mode observation</strong> — aucune modification ne sera enregistrée. Tu peux cliquer et naviguer librement.</span>
-  </div>` : ''}
-  ${content}
-</div>
+      <div class="content">${content}</div>
     </main>
   </div>`;
 }
@@ -5560,119 +5519,137 @@ setTimeout(checkVersion, 3000);
 
 /* ============ SON DU SPLASH (synthé électro) ============ */
 function splashPlaySound(ac){
-  const t0 = ac.currentTime + 0.05;
+  const t0 = ac.currentTime + 0.02;
 
   const master = ac.createGain();
-  master.gain.value = 0.38;
+  master.gain.value = 0.34;
   master.connect(ac.destination);
 
-  /* ==== RÉVERB (salle / cabinet) ==== */
+  // Bus de réverbe court, filtré pour éviter les aigus cristallins
   const rev = ac.createConvolver();
-  const len = ac.sampleRate * 1.5;
+  const len = ac.sampleRate * 1.4;
   const ir = ac.createBuffer(2, len, ac.sampleRate);
   for(let ch=0; ch<2; ch++){
     const d = ir.getChannelData(ch);
     for(let i=0; i<len; i++){
-      d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 3);
+      d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 3.2);
     }
   }
   rev.buffer = ir;
+
+  const revFilt = ac.createBiquadFilter();
+  revFilt.type = 'lowpass';
+  revFilt.frequency.value = 1400;
+  revFilt.Q.value = 0.7;
+
   const revGain = ac.createGain();
-  revGain.gain.value = 0.25;
-  rev.connect(revGain);
+  revGain.gain.value = 0.18;
+  rev.connect(revFilt);
+  revFilt.connect(revGain);
   revGain.connect(master);
 
-  /* ==== FUZZ FACE (distorsion Hendrix) ==== */
-  const fuzz = ac.createWaveShaper();
-  const N = 2048;
-  const curve = new Float32Array(N);
-  for(let i=0; i<N; i++){
-    const x = (i*2)/N - 1;
-    curve[i] = Math.tanh(x * 5.5);
-  }
-  fuzz.curve = curve;
-  fuzz.oversample = '4x';
-
-  /* ==== WAH-WAH ==== */
-  const wah = ac.createBiquadFilter();
-  wah.type = 'bandpass';
-  wah.Q.value = 3.5;
-
-  /* ==== CABINET (lowpass) ==== */
-  const cab = ac.createBiquadFilter();
-  cab.type = 'lowpass';
-  cab.frequency.value = 3800;
-  cab.Q.value = 0.7;
-
-  /* Chaîne fixe : fuzz → wah → cab → master + reverb */
-  fuzz.connect(wah);
-  wah.connect(cab);
-  cab.connect(master);
-  cab.connect(rev);
-
-  /* ==== Lecture d'une note / accord ==== */
-  function note(freqs, startTime, dur, opts){
-    const t = t0 + startTime;
-    const { bend = 0, wahFrom = 350, wahTo = 2200, level = 0.35 } = opts || {};
-
-    // Sweep de wah propre à chaque note
-    wah.frequency.cancelScheduledValues(t);
-    wah.frequency.setValueAtTime(wahFrom, t);
-    wah.frequency.exponentialRampToValueAtTime(wahTo, t + dur * 0.6);
-
-    // Enveloppe "pluck" (attaque vive, décroissance naturelle)
-    const env = ac.createGain();
-    env.gain.setValueAtTime(0.0001, t);
-    env.gain.exponentialRampToValueAtTime(level, t + 0.006);
-    env.gain.exponentialRampToValueAtTime(level * 0.55, t + 0.12);
-    env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    env.connect(fuzz);
+  /* 1. NAPPE SAW DÉTUNÉE (0 → 2s) */
+  {
+    const freqs = [110, 165, 220];
+    const filt = ac.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.frequency.setValueAtTime(320, t0);
+    filt.frequency.exponentialRampToValueAtTime(2200, t0 + 1.9);
+    filt.Q.value = 9;
 
     freqs.forEach((f, i) => {
       const o = ac.createOscillator();
-      o.type = i === 0 ? 'sawtooth' : 'square';
-      o.frequency.setValueAtTime(f, t);
-
-      // Bend d'entrée (glissando vers la note)
-      if(bend){
-        o.frequency.setValueAtTime(f * (1 - bend), t);
-        o.frequency.exponentialRampToValueAtTime(f, t + 0.09);
-      }
-
-      // Vibrato léger — le "shake" Hendrix
-      const lfo = ac.createOscillator();
-      const lfoAmt = ac.createGain();
-      lfo.frequency.value = 5.2 + Math.random() * 1.5;
-      lfoAmt.gain.value = f * 0.007;
-      lfo.connect(lfoAmt);
-      lfoAmt.connect(o.frequency);
-      lfo.start(t);
-      lfo.stop(t + dur + 0.1);
-
-      // Mélange des harmoniques (fondamentale plus forte)
       const g = ac.createGain();
-      g.gain.value = i === 0 ? 0.65 : (i === 1 ? 0.4 : 0.25);
-      o.connect(g);
-      g.connect(env);
-      o.start(t);
-      o.stop(t + dur + 0.15);
+      o.type = 'sawtooth';
+      o.frequency.value = f * (1 + (i - 1) * 0.006);
+      o.connect(g); g.connect(filt);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.045, t0 + 0.8);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.15);
+      o.start(t0); o.stop(t0 + 2.2);
     });
+
+    filt.connect(master);
+    filt.connect(rev);
   }
 
-  /* ==== RIFF "TA - DA - DAM" (blues en La, style Hendrix) ==== */
+  /* 2. RISER SAW RÉSONANT (0.4 → 2s) */
+  {
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    const filt = ac.createBiquadFilter();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(180, t0 + 0.4);
+    o.frequency.exponentialRampToValueAtTime(580, t0 + 2.0);
+    filt.type = 'bandpass';
+    filt.frequency.setValueAtTime(500, t0 + 0.4);
+    filt.frequency.exponentialRampToValueAtTime(3200, t0 + 2.0);
+    filt.Q.value = 14;
+    o.connect(filt); filt.connect(g); g.connect(master);
 
-  // "ta" — E3 (mi grave), court et sec
-  note([164.81, 329.63, 494.00], 1.20, 0.26,
-       { wahFrom: 400, wahTo: 1600, level: 0.34 });
+    g.gain.setValueAtTime(0.0001, t0 + 0.4);
+    g.gain.exponentialRampToValueAtTime(0.075, t0 + 1.7);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.05);
+    o.start(t0 + 0.4); o.stop(t0 + 2.1);
+  }
 
-  // "da" — G3, un cran plus haut
- note([196.00, 392.00, 587.33], 1.58, 0.26,
-       { wahFrom: 500, wahTo: 1900, level: 0.36 });
+  /* 3. SUB BASS (0 → 2.1s) */
+  {
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(55, t0);
+    o.frequency.exponentialRampToValueAtTime(82, t0 + 1.9);
+    o.connect(g); g.connect(master);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.20, t0 + 1.0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.15);
+    o.start(t0); o.stop(t0 + 2.2);
+  }
 
-  // "dam" — Power chord A5 (A3 + E4 + A4 + E5), bend d'entrée, résonne longtemps
-  note([220.00, 329.63, 440.00, 659.25], 2.00, 2.8,
-       { bend: 0.06, wahFrom: 800, wahTo: 3200, level: 0.44 });
+  /* 4. EXPLOSION SYNTH (2.0s) — kick + stab d'accord */
+  {
+    const tb = t0 + 2.0;
+
+    // Kick synthé : sinus 130 → 42 Hz
+    {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(130, tb);
+      o.frequency.exponentialRampToValueAtTime(42, tb + 0.22);
+      o.connect(g); g.connect(master);
+      g.gain.setValueAtTime(0.0001, tb);
+      g.gain.exponentialRampToValueAtTime(0.55, tb + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, tb + 0.35);
+      o.start(tb); o.stop(tb + 0.4);
+    }
+
+    // Stab d'accord : 4 voix triangle douces, filtre qui se referme
+    const notes = [261.63, 392.00, 523.25, 783.99];
+    const filt = ac.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.frequency.setValueAtTime(2400, tb);
+    filt.frequency.exponentialRampToValueAtTime(700, tb + 1.5);
+    filt.Q.value = 2.5;
+    filt.connect(master);
+    filt.connect(rev);
+
+    notes.forEach((f, i) => {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = 'triangle';
+      o.frequency.value = f;
+      o.connect(g); g.connect(filt);
+      const t = tb + i * 0.015;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.10, t + 0.045);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.7);
+      o.start(t); o.stop(t + 1.8);
+    });
+  }
 }
+
 function playSplashSound(){
   try{
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -5692,7 +5669,34 @@ function playSplashSound(){
   }catch(e){}
 }
 
-playSplashSound();
+/* ============ SON D'INTRO (fichier intro.m4a) ============ */
+function playIntroFile(){
+  let a;
+  try{ a = new Audio('intro.m4a'); a.preload='auto'; a.volume = 1; }catch(e){ playSplashSound(); return; }
+  let started = false;
+  const fade = () => {               // fondu de sortie quand le splash se termine
+    const t0 = Date.now(), v0 = a.volume;
+    const iv = setInterval(()=>{
+      const k = (Date.now()-t0)/900;
+      if(k>=1){ clearInterval(iv); a.pause(); } else { a.volume = Math.max(0, v0*(1-k)); }
+    }, 40);
+  };
+  const go = () => {
+    if(started) return; started = true;
+    const p = a.play();
+    if(p && p.catch) p.catch(()=>{ started=false; });
+    setTimeout(fade, 4400);
+  };
+  // tentative immédiate ; si le navigateur bloque, on joue au premier toucher
+  const p = a.play();
+  if(p && p.then){
+    p.then(()=>{ started=true; setTimeout(fade, 4400); }).catch(()=>{
+      document.addEventListener('touchstart', go, {once:true});
+      document.addEventListener('click', go, {once:true});
+    });
+  }
+}
+playIntroFile();
 
 setTimeout(()=>{
   const nw = document.getElementById('noteWrap');
