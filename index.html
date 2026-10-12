@@ -5669,34 +5669,7 @@ function playSplashSound(){
   }catch(e){}
 }
 
-/* ============ SON D'INTRO (fichier intro.m4a) ============ */
-function playIntroFile(){
-  let a;
-  try{ a = new Audio('intro.m4a'); a.preload='auto'; a.volume = 1; }catch(e){ playSplashSound(); return; }
-  let started = false;
-  const fade = () => {               // fondu de sortie quand le splash se termine
-    const t0 = Date.now(), v0 = a.volume;
-    const iv = setInterval(()=>{
-      const k = (Date.now()-t0)/900;
-      if(k>=1){ clearInterval(iv); a.pause(); } else { a.volume = Math.max(0, v0*(1-k)); }
-    }, 40);
-  };
-  const go = () => {
-    if(started) return; started = true;
-    const p = a.play();
-    if(p && p.catch) p.catch(()=>{ started=false; });
-    setTimeout(fade, 4400);
-  };
-  // tentative immédiate ; si le navigateur bloque, on joue au premier toucher
-  const p = a.play();
-  if(p && p.then){
-    p.then(()=>{ started=true; setTimeout(fade, 4400); }).catch(()=>{
-      document.addEventListener('touchstart', go, {once:true});
-      document.addEventListener('click', go, {once:true});
-    });
-  }
-}
-playIntroFile();
+playSplashSound();
 
 setTimeout(()=>{
   const nw = document.getElementById('noteWrap');
