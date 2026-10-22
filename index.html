@@ -311,6 +311,7 @@
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/appwrite@23.0.0"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
 if('serviceWorker' in navigator){
@@ -626,6 +627,15 @@ function dedupeUsers(){
   }
   return true;
 }
+/* ============ APPWRITE SETUP ============ */
+const APW_ENDPOINT = 'https://fra.cloud.appwrite.io/v1';
+const APW_PROJECT  = '6ad9f4c20010b0156a02';
+const APW_DB       = '6ad9fbda001f52b5f27a';
+const apwClient = new Appwrite.Client().setEndpoint(APW_ENDPOINT).setProject(APW_PROJECT);
+const apwAccount = new Appwrite.Account(apwClient);
+const apwDatabases = new Appwrite.Databases(apwClient);
+
+/* ============ APPWRITE DATA SYNC (Phase 1) ============ */
 const syncBase=()=>sync.db.replace(/\/+$/,'')+'/rooms/'+encodeURIComponent(sync.room);
 const snap=d=>{ const o={}; COLS.forEach(c=>{ o[c]={}; (d[c]||[]).forEach(it=>{ o[c][it.id]=JSON.stringify(it); }); }); return o; };
 function setStatus(st){
@@ -638,51 +648,161 @@ function idle(){
   const a=document.activeElement;
   return !(a && (a.tagName==='TEXTAREA' || (a.tagName==='INPUT' && a.type!=='checkbox')) && a.value);
 }
-async function syncTick(){
-  if(!sync||busy) return;
-  if(fbAuth && fbUser===undefined){ setTimeout(syncTick,300); return; }
-  if(fbAuth && !fbUser) return;
-  busy=true; setStatus('sync');
-  const T = await tok();
-  try{
-    if(dirty){
-      const v=ver, cur=snap(data), upd={};
-      COLS.forEach(c=>{
-        for(const id in cur[c]) if((last[c]||{})[id]!==cur[c][id]) upd[c+'/'+id]=JSON.parse(cur[c][id]);
-        for(const id in (last[c]||{})) if(!(id in cur[c])) upd[c+'/'+id]=null;
-      });
-      if(Object.keys(upd).length){
-        const r=await fetch(withAuth(syncBase()+'.json',T),{method:'PATCH',body:JSON.stringify(upd)});
-        if(!r.ok) throw new Error('push');
-      }
-      last=cur; if(ver===v) dirty=false;
-    } else {
-      const r=await fetch(withAuth(syncBase()+'.json',T)); if(!r.ok) throw new Error('pull');
-      const rem=await r.json();
-      if(rem===null){ last={}; dirty=true; setTimeout(syncTick,150); }
-      else {
-        const before=JSON.stringify(COLS.map(c=>data[c]));
-        COLS.forEach(c=>{ data[c]=Object.values(rem[c]||{}); });
-               normalize(); last=snap(data);
-        if(dedupeUsers()){ dirty=true; ver++; setTimeout(syncTick,150); }
-        if(stripPins()){ dirty=true; ver++; setTimeout(syncTick,150); }
-        localStorage.setItem(KEY, JSON.stringify(data));
-        if(ui.currentUserId && !user(ui.currentUserId)) ui.currentUserId=null;
-               if(!ui.currentUserId) applyPending();
-        if(ready && (JSON.stringify(COLS.map(c=>data[c]))!==before || pendingRender)){
-          if(idle()){ render(); pendingRender=false; } else pendingRender=true;
-        }
+/* ============ APPWRITE DATA SYNC (Phase 1) ============ */
+let apwReady = false;
+let apwSubscriptions = [];
+
+const snapAppwrite = d => {
+  const o = {};
+  COLS.forEach(c => {
+    o[c] = {};
+    (d[c] || []).forEach(it => { o[c][it.id] = JSON.stringify(it); });
+  });
+  return o;
+};
+
+async function loadFromAppwrite() {
+  const result = {};
+  for (const col of COLS) {
+    try {
+      const list = await apwDatabases.listDocuments(APW_DB, col, [
+        Appwrite.Query.equal('room', sync.room),
+Appwrite.Query.limit(1000)
+      ]);
+      result[col] = list.documents
+        .map(d => { try { return JSON.parse(d.json); } catch { return null; } })
+        .filter(Boolean);
+    } catch (e) {
+      console.warn('[Appwrite] load ' + col + ':', e.message);
+      result[col] = [];
+    }
+  }
+  return result;
+}
+
+async function pushToAppwrite() {
+  const v = ver, cur = snapAppwrite(data), updates = [], deletes = [];
+  COLS.forEach(c => {
+    for (const id in cur[c]) {
+      if ((last[c] || {})[id] !== cur[c][id]) {
+        updates.push({ col: c, id, data: JSON.parse(cur[c][id]) });
       }
     }
+    for (const id in (last[c] || {})) {
+      if (!(id in cur[c])) deletes.push({ col: c, id });
+    }
+  });
+  if (!updates.length && !deletes.length) { if (ver === v) dirty = false; return; }
+  for (const u of updates) {
+    const payload = { id: u.id, room: sync.room, json: JSON.stringify(u.data) };
+    try {
+      await apwDatabases.createDocument(APW_DB, u.col, u.id, payload);
+    } catch (e) {
+      if (e.code === 409 || /already exists/.test(e.message)) {
+        await apwDatabases.updateDocument(APW_DB, u.col, u.id, payload);
+      } else throw e;
+    }
+  }
+  for (const d of deletes) {
+    try { await apwDatabases.deleteDocument(APW_DB, d.col, d.id); }
+    catch (e) { if (e.code !== 404) console.warn('[Appwrite] delete ' + d.col + '/' + d.id + ':', e.message); }
+  }
+  last = cur;
+  if (ver === v) dirty = false;
+}
+
+function subscribeAppwriteRealtime() {
+  apwSubscriptions.forEach(s => { try { s.unsubscribe?.(); } catch {} });
+  apwSubscriptions = [];
+  const realtime = new Appwrite.Realtime(apwClient);
+  COLS.forEach(col => {
+    const sub = realtime.subscribe(
+      'databases.' + APW_DB + '.collections.' + col + '.documents',
+      (event) => {
+        const payload = event.payload;
+        if (!payload) return;
+        const evType = String((event.events && event.events[0]) || '');
+        const itemId = payload.$id;
+        if (!itemId) return;
+        const isDelete = evType.includes('.delete');
+        if (isDelete) {
+          const arr = data[col] || [];
+          if (!arr.some(x => x.id === itemId)) return;
+          data[col] = arr.filter(x => x.id !== itemId);
+        } else {
+          if (payload.room !== sync.room) return;
+          let item;
+          try { item = JSON.parse(payload.json); } catch { return; }
+          const arr = data[col] || [];
+          const idx = arr.findIndex(x => x.id === itemId);
+          if (idx >= 0) {
+            if (JSON.stringify(arr[idx]) === JSON.stringify(item)) return;
+            const na = arr.slice(); na[idx] = item; data[col] = na;
+          } else {
+            data[col] = [...arr, item];
+          }
+        }
+        if (!last[col]) last[col] = {};
+        if (!isDelete) { try { last[col][itemId] = JSON.stringify(JSON.parse(payload.json || '{}')); } catch {} }
+        else delete last[col][itemId];
+        localStorage.setItem(KEY, JSON.stringify(data));
+        if (ready && idle()) render();
+        else pendingRender = true;
+      }
+    );
+    apwSubscriptions.push(sub);
+  });
+  console.log('[Appwrite] realtime actif sur ' + COLS.length + ' collections');
+}
+
+async function syncTick() {
+  if (!sync || busy) return;
+  if (!apwReady) return;
+  if (fbAuth && fbUser === undefined) { setTimeout(syncTick, 300); return; }
+  if (fbAuth && !fbUser) return;
+  if (!dirty) return;
+  busy = true;
+  setStatus('sync');
+  try {
+    await pushToAppwrite();
     setStatus('ok');
-    if(isRoomAdmin() && ui.view==='musicians') refreshJoined();
-  }catch(e){
-    window.syncErr = String((e&&e.message)||e);
-    if(!ready) last=snap(data);
+  } catch (e) {
+    window.syncErr = String((e && e.message) || e);
     setStatus('off');
-  }finally{
-    busy=false;
-    if(!ready){ ready=true; render(); }
+  } finally {
+    busy = false;
+  }
+}
+
+async function initAppwriteSync() {
+  if (!sync) { ready = true; render(); return; }
+  try {
+    try { await apwAccount.get(); }
+    catch { await apwAccount.createAnonymousSession(); }
+    const remote = await loadFromAppwrite();    COLS.forEach(c => { data[c] = remote[c] || []; });
+    normalize();
+    dedupeUsers();
+    stripPins();
+    localStorage.setItem(KEY, JSON.stringify(data));
+    last = snapAppwrite(data);
+    dirty = false;
+    apwReady = true;
+    ready = true;
+       setStatus('ok');
+    const _cm = localStorage.getItem(ME_KEY);
+    if (_cm && user(_cm) && !ui.currentUserId) {
+      ui.currentUserId = _cm;
+      myMember = { userId: _cm, admin: localStorage.getItem(ADMIN_KEY)==='1' };
+      console.log('[Appwrite] identité restaurée depuis localStorage :', _cm);
+    }
+    render();
+    subscribeAppwriteRealtime();
+  } catch (e) {
+    console.error('[Appwrite] init error:', e);
+    apwReady = true;
+    ready = true;
+    setStatus('off');
+    render();
   }
 }
 const LASTEXP_KEY = 'pupitre-last-export';
@@ -1004,8 +1124,11 @@ async function resolveIdentity(){
       }
       return null;
     }
-    const r = await dbCall('GET', 'members/' + encodeURIComponent(room) + '/' + u.uid);
-    if(!r.ok) return null;
+   const r = await dbCall('GET', 'members/' + encodeURIComponent(room) + '/' + u.uid);
+    if(!r.ok){
+      if(cachedMe) return {userId:cachedMe, admin: localStorage.getItem(ADMIN_KEY)==='1'};
+      return null;
+    }
     const v = await r.json();
     if(v && v.userId){
       if(v.admin) localStorage.setItem(ADMIN_KEY, '1'); else localStorage.removeItem(ADMIN_KEY);
@@ -5443,9 +5566,11 @@ applyPending();
 if(dedupeUsers()) save();
 if(stripPins()) save();
 if(sync){
-  syncTick(); setInterval(syncTick,5000);
-  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) syncTick(); });
+  initAppwriteSync();
 }
+setInterval(() => {
+  if (pendingRender && ready && idle()) { pendingRender = false; render(); }
+}, 2000);
 /* ============ AUTH STATE ============ */
 if(fbAuth){
   // Attendre que setPersistence soit terminé avant d'écouter l'état
@@ -5708,6 +5833,7 @@ setTimeout(()=>{
   if(sp){ sp.classList.add('hide'); sp.remove(); }
 }, 5300);
 </script>
+<!-- ============ TEST APPWRITE ============ -->
 
 </body>
 </html>
