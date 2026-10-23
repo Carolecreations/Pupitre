@@ -676,7 +676,7 @@ Appwrite.Query.limit(1000)
         .filter(Boolean);
     } catch (e) {
       console.warn('[Appwrite] load ' + col + ':', e.message);
-      result[col] = [];
+      throw new Error('chargement impossible (' + col + ') : ' + e.message);
     }
   }
   return result;
@@ -776,21 +776,34 @@ async function syncTick() {
   }
 }
 
+let apwRetryTimer = null;
 async function initAppwriteSync() {
   if (!sync) { ready = true; render(); return; }
+  clearTimeout(apwRetryTimer);
   try {
     try { await apwAccount.get(); }
     catch { await apwAccount.createAnonymousSession(); }
-    const remote = await loadFromAppwrite();    COLS.forEach(c => { data[c] = remote[c] || []; });
-    normalize();
-    dedupeUsers();
-    stripPins();
+    const remote = await loadFromAppwrite();
+    if (dirty) {
+      // modifications faites hors ligne : on les garde, par-dessus les donnees du serveur
+      COLS.forEach(c => {
+        const loc = data[c] || [];
+        const ids = new Set(loc.map(x => x.id));
+        data[c] = [...loc, ...(remote[c] || []).filter(x => !ids.has(x.id))];
+      });
+      last = snapAppwrite(remote);
+    } else {
+      COLS.forEach(c => { data[c] = remote[c] || []; });
+      normalize();
+      dedupeUsers();
+      stripPins();
+      last = snapAppwrite(data);
+      dirty = false;
+    }
     localStorage.setItem(KEY, JSON.stringify(data));
-    last = snapAppwrite(data);
-    dirty = false;
     apwReady = true;
     ready = true;
-       setStatus('ok');
+    setStatus('ok');
     const _cm = localStorage.getItem(ME_KEY);
     if (_cm && user(_cm) && !ui.currentUserId) {
       ui.currentUserId = _cm;
@@ -800,11 +813,14 @@ async function initAppwriteSync() {
     render();
     subscribeAppwriteRealtime();
   } catch (e) {
+    // Echec (hors ligne, quota, panne) : on GARDE la copie locale, on n'ecrit rien au serveur
     console.error('[Appwrite] init error:', e);
-    apwReady = true;
+    window.syncErr = String((e && e.message) || e);
+    apwReady = false;
     ready = true;
     setStatus('off');
     render();
+    apwRetryTimer = setTimeout(initAppwriteSync, 30000);
   }
 }
 const LASTEXP_KEY = 'pupitre-last-export';
