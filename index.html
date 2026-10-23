@@ -634,6 +634,8 @@ const APW_DB       = '6ad9fbda001f52b5f27a';
 const apwClient = new Appwrite.Client().setEndpoint(APW_ENDPOINT).setProject(APW_PROJECT);
 const apwAccount = new Appwrite.Account(apwClient);
 const apwDatabases = new Appwrite.Databases(apwClient);
+const apwStorage = new Appwrite.Storage(apwClient);
+const APW_BUCKET = 'audio';
 
 /* ============ APPWRITE DATA SYNC (Phase 1) ============ */
 const syncBase=()=>sync.db.replace(/\/+$/,'')+'/rooms/'+encodeURIComponent(sync.room);
@@ -3608,10 +3610,35 @@ async function putImage(id, dataUrl){
     }
   }
 }
-/* ============ SUPABASE STORAGE — UPLOAD AUDIO ============ */
+/* ============ STOCKAGE AUDIO — APPWRITE (les anciens fichiers Supabase restent lisibles) ============ */
 
 const AUDIO_MAX_MB = 50;
-async function uploadAudioToSupabase(file){
+const APW_FILE_RE = /\/storage\/buckets\/[^/]+\/files\/([^/?#]+)\/view/;
+const isAppwriteAudio = url => !!url && String(url).indexOf(APW_ENDPOINT) === 0 && APW_FILE_RE.test(url);
+const isSupabaseAudio = url => /supabase\.co/.test(url || '');
+const isHostedAudio = url => isAppwriteAudio(url) || isSupabaseAudio(url);
+const appwriteFileId = url => { const m = String(url || '').match(APW_FILE_RE); return m ? m[1] : null; };
+const audioViewUrl = id => APW_ENDPOINT + '/storage/buckets/' + APW_BUCKET + '/files/' + id + '/view?project=' + APW_PROJECT;
+
+async function ensureAppwriteSession(){
+  try{ await apwAccount.get(); }
+  catch(e){ await apwAccount.createAnonymousSession(); }
+}
+
+/* Petit bandeau d'avancement : la fenêtre se ferme dès qu'on valide, l'envoi continue en arrière-plan */
+function uploadBanner(txt){
+  let b = document.getElementById('upload-banner');
+  if(txt === null){ if(b) b.remove(); return; }
+  if(!b){
+    b = document.createElement('div');
+    b.id = 'upload-banner';
+    b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:84px;z-index:260;background:#171a21;color:#e6e8ec;border:1px solid #2a2f3a;padding:10px 16px;border-radius:12px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.45);max-width:90vw';
+    document.body.appendChild(b);
+  }
+  b.textContent = txt;
+}
+
+async function uploadAudio(file, onProgress){
   if(!sync) throw new Error('Synchro désactivée.');
   if(file.size > AUDIO_MAX_MB*1024*1024){
     const mo = (file.size/1024/1024).toFixed(1).replace('.',',');
@@ -3620,25 +3647,29 @@ async function uploadAudioToSupabase(file){
   if(file.type && !/^(audio\/|video\/mp4)/.test(file.type)){
     throw new Error('Ce fichier n\'est pas un fichier audio (' + file.type + '). Formats acceptés : MP3, M4A, WAV, MP4.');
   }
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-  const path = sync.room + '/' + Date.now() + '_' + safeName;
-  const url = SUPABASE_URL + '/storage/v1/object/audio/' + path;
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_KEY,
-      'Content-Type': file.type || 'application/octet-stream'
-    },
-    body: file
-  });
-  if(!r.ok){
-    const t = await r.text().catch(()=>'');
-    throw new Error('Upload refusé (' + r.status + ') ' + t);
+  try{
+    await ensureAppwriteSession();
+    const f = await apwStorage.createFile(APW_BUCKET, Appwrite.ID.unique(), file, undefined, onProgress);
+    return audioViewUrl(f.$id);
+  }catch(e){
+    if(e && (e.code === 401 || e.code === 403)) throw new Error('droits insuffisants sur le stockage audio (Appwrite : bucket « audio », réglages, permissions).');
+    if(e && e.code === 413) throw new Error('fichier refusé par le stockage (taille maximale dépassée).');
+    throw new Error((e && e.message) || String(e));
   }
-  return SUPABASE_URL + '/storage/v1/object/public/audio/' + path;
 }
 
+/* Supprime le fichier audio d'une version, où qu'il soit hébergé */
+function deleteAudioByUrl(url){
+  if(!url) return;
+  if(isAppwriteAudio(url)){
+    const id = appwriteFileId(url);
+    if(id) apwStorage.deleteFile(APW_BUCKET, id).catch(()=>{});
+    return;
+  }
+  if(isSupabaseAudio(url)) deleteAudioFromSupabase(url);
+}
+
+/* Anciens fichiers (pas encore migrés) : suppression chez Supabase */
 function deleteAudioFromSupabase(url){
   if(!url || !sync) return;
   const m = url.match(/\/object\/public\/audio\/(.+)$/);
@@ -4011,6 +4042,17 @@ function fmtTime(t){
   return m + ':' + String(s).padStart(2,'0');
 }
 
+/* Reconnaît le format d'après les premiers octets (au cas où le serveur annonce un mauvais type) */
+function sniffAudioType(b){
+  const s = (i,n)=>String.fromCharCode(...b.slice(i,i+n));
+  if(s(0,4)==='RIFF' && s(8,4)==='WAVE') return 'audio/wav';
+  if(s(0,3)==='ID3' || (b[0]===0xFF && (b[1]&0xE0)===0xE0)) return 'audio/mpeg';
+  if(s(4,4)==='ftyp') return 'audio/mp4';
+  if(s(0,4)==='OggS') return 'audio/ogg';
+  if(s(0,4)==='fLaC') return 'audio/flac';
+  return '';
+}
+
 async function playAudio(songId, versionId){
   const s = song(songId);
   if(!s) return;
@@ -4056,7 +4098,11 @@ async function playAudio(songId, versionId){
   try{
     const r = await fetch(url);
     if(!r.ok) throw new Error('HTTP ' + r.status);
-    const blob = await r.blob();
+    let blob = await r.blob();
+    if(!/^(audio|video)\//.test(blob.type)){
+      const ty = sniffAudioType(new Uint8Array(await blob.slice(0,12).arrayBuffer()));
+      if(ty) blob = new Blob([blob], {type: ty});
+    }
     blobUrl = URL.createObjectURL(blob);
     audio.src = blobUrl;
     pp.textContent = '▶';
@@ -4529,33 +4575,36 @@ if(sr && !sr.dataset.bound){
 /* ============ NETTOYAGE DES MÉDIAS ORPHELINS ============ */
 async function scanAudioOrphans(){
   if(!sync) return {error:"Active la synchro d'abord."};
-  const referenced = new Set();
+  if(!data.songVersions.length) return {error:"Aucune version chargée : nettoyage annulé par sécurité."};
+  const referenced = new Set();      // fichiers Appwrite utilisés par une version
+  const legacyKeys = new Set();      // morceaux dont la version pointe encore chez Supabase : on garde leur copie Appwrite
   data.songVersions.forEach(v => {
-    if(v.url && /supabase\.co/.test(v.url)){
-      const m = v.url.match(/\/object\/public\/audio\/(.+)$/);
-      if(m) referenced.add(decodeURIComponent(m[1]));
+    const id = appwriteFileId(v.url);
+    if(id) referenced.add(id);
+    else if(isSupabaseAudio(v.url)){
+      const m = decodeURIComponent(v.url).match(/(\d{13})_/);
+      if(m) legacyKeys.add(m[1]);
     }
   });
-  let files = [];
+  const files = [];
   try{
-    const r = await fetch(SUPABASE_URL + '/storage/v1/object/list/audio', {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ prefix: sync.room + '/', limit: 1000, offset: 0 })
-    });
-    if(!r.ok) throw new Error('statut ' + r.status);
-    files = await r.json();
+    await ensureAppwriteSession();
+    for(let offset = 0; ; offset += 100){
+      const r = await apwStorage.listFiles(APW_BUCKET, [Appwrite.Query.limit(100), Appwrite.Query.offset(offset)]);
+      files.push(...r.files);
+      if(r.files.length < 100) break;
+    }
   }catch(e){
-    return {error:"Impossible de lister Supabase : " + (e.message||e)};
+    return {error:"Impossible de lister Appwrite : " + (e.message||e)};
   }
+  const recent = Date.now() - 3600*1000;   // un fichier envoyé depuis moins d'une heure n'est jamais touché
   const orphans = [];
   files.forEach(f => {
-    const full = sync.room + '/' + f.name;
-    if(!referenced.has(full)) orphans.push(full);
+    if(referenced.has(f.$id)) return;
+    const m = String(f.name).match(/(\d{13})_/);
+    if(m && legacyKeys.has(m[1])) return;
+    if(new Date(f.$createdAt).getTime() > recent) return;
+    orphans.push({id:f.$id, name:f.name});
   });
   return {orphans, total: files.length, referenced: referenced.size};
 }
@@ -4581,17 +4630,11 @@ async function scanImageOrphans(){
   return {orphans, total: Object.keys(imgs).length, referenced: referenced.size};
 }
 
-async function deleteAudioFile(path){
+async function deleteAudioFile(o){
   try{
-    const r = await fetch(SUPABASE_URL + '/storage/v1/object/audio/' + path, {
-      method: 'DELETE',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_KEY
-      }
-    });
-    return r.ok || r.status === 404;
-  }catch(e){ return false; }
+    await apwStorage.deleteFile(APW_BUCKET, o.id);
+    return true;
+  }catch(e){ return !!(e && e.code === 404); }
 }
 
 async function deleteImageFile(id){
@@ -4654,12 +4697,12 @@ async function openCleanupModal(){
     </p>
     <div class="card" style="margin:0 0 12px">
       <div class="small" style="line-height:1.9">
-        <strong>🎵 Audio (Supabase)</strong> : ${totalAudio} à supprimer sur ${audio.total}<br>
+        <strong>🎵 Audio (Appwrite)</strong> : ${totalAudio} à supprimer sur ${audio.total}<br>
         <strong>🖼️ Images (Firebase)</strong> : ${totalImg} à supprimer sur ${images.total}
       </div>
     </div>
     ${totalAudio ? `<details style="margin-bottom:10px"><summary class="small muted" style="cursor:pointer">Voir les fichiers audio</summary>
-      <div class="small muted" style="margin-top:8px;font-family:ui-monospace,monospace;font-size:11px;max-height:140px;overflow:auto">${audio.orphans.slice(0,50).map(esc).join('<br>')}${audio.orphans.length>50?'<br>…':''}</div>
+      <div class="small muted" style="margin-top:8px;font-family:ui-monospace,monospace;font-size:11px;max-height:140px;overflow:auto">${audio.orphans.slice(0,50).map(o=>esc(o.name)).join('<br>')}${audio.orphans.length>50?'<br>…':''}</div>
     </details>` : ''}
     ${totalImg ? `<details style="margin-bottom:10px"><summary class="small muted" style="cursor:pointer">Voir les images</summary>
       <div class="small muted" style="margin-top:8px;font-family:ui-monospace,monospace;font-size:11px;max-height:100px;overflow:auto">${images.orphans.map(esc).join('<br>')}</div>
@@ -5332,7 +5375,7 @@ function openVersionModal(sid, vid){
   if(vid && !v){ alert('Version introuvable.'); return; }
   const targetSong = sid || (v ? v.songId : null);
   const currentUrl = v?.url || '';
-  const isSupabase = /supabase\.co/.test(currentUrl);
+  const isSupabase = isHostedAudio(currentUrl);
   openModal({
     title: v ? 'Modifier la version' : 'Nouvelle version',
     body: `
@@ -5369,8 +5412,13 @@ function openVersionModal(sid, vid){
         try{
           const btn = document.querySelector('#modal-form button[type="submit"]');
           if(btn){ btn.disabled = true; btn.textContent = 'Envoi…'; }
-          audioUrl = await uploadAudioToSupabase(file);
+          uploadBanner('Envoi de « ' + file.name + ' »…');
+          audioUrl = await uploadAudio(file, p => {
+            if(p && p.progress !== undefined) uploadBanner('Envoi de « ' + file.name + ' » : ' + Math.round(p.progress) + ' %');
+          });
+          uploadBanner(null);
         }catch(e){
+          uploadBanner(null);
           alert('Envoi impossible : ' + e.message);
           const btn = document.querySelector('#modal-form button[type="submit"]');
           if(btn){ btn.disabled = false; btn.textContent = v ? 'Enregistrer' : 'Créer'; }
@@ -5381,8 +5429,8 @@ function openVersionModal(sid, vid){
       }
 
       if(v){
-        if(v.url && v.url !== audioUrl && /supabase\.co/.test(v.url)){
-          deleteAudioFromSupabase(v.url);
+        if(v.url && v.url !== audioUrl && isHostedAudio(v.url)){
+          deleteAudioByUrl(v.url);
         }
         v.label = (fd.label||'').trim();
         v.notes = (fd.notes||'').trim();
@@ -5405,7 +5453,7 @@ function openVersionModal(sid, vid){
     const vv = data.songVersions.find(x=>x.id===vid2);
     if(!vv) return;
     if(!confirm('Retirer le fichier audio de cette version ?')) return;
-    if(/supabase\.co/.test(vv.url)) deleteAudioFromSupabase(vv.url);
+    deleteAudioByUrl(vv.url);
     vv.url = '';
     save(); render(); closeModal();
   });
