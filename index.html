@@ -4035,6 +4035,7 @@ function toAudioUrl(url){
 }
 
 let miniPlayer = null;
+let audioToken = 0;   // change à chaque nouvelle lecture ou fermeture : annule les chargements en cours
 
 function fmtTime(t){
   if(!isFinite(t) || t < 0) return '0:00';
@@ -4061,6 +4062,7 @@ async function playAudio(songId, versionId){
   const url = toAudioUrl(v.url);
   if(!url){ alert('Aucun lien audio pour cette version.'); return; }
   closeMiniPlayer();
+  const myToken = audioToken;
 
   const el = document.createElement('div');
   el.id = 'mini-player';
@@ -4093,20 +4095,42 @@ async function playAudio(songId, versionId){
   const cur  = el.querySelector('[data-cur]');
   const dur  = el.querySelector('[data-dur]');
 
-  // Téléchargement complet du fichier puis lecture depuis un blob local
+  // Téléchargement complet du fichier (avec avancement) puis lecture depuis un blob local
   let blobUrl = null;
+  const annule = () => myToken !== audioToken;
   try{
     const r = await fetch(url);
+    if(annule()) return;
     if(!r.ok) throw new Error('HTTP ' + r.status);
-    let blob = await r.blob();
+    const total = Number(r.headers.get('content-length')) || 0;
+    let blob;
+    if(r.body && r.body.getReader){
+      const reader = r.body.getReader();
+      const chunks = [];
+      let got = 0;
+      for(;;){
+        const {done, value} = await reader.read();
+        if(annule()){ try{ reader.cancel(); }catch(x){} return; }
+        if(done) break;
+        chunks.push(value); got += value.length;
+        if(total) pp.textContent = Math.round(got / total * 100) + '%';
+      }
+      blob = new Blob(chunks, {type: r.headers.get('content-type') || ''});
+    } else {
+      blob = await r.blob();
+      if(annule()) return;
+    }
     if(!/^(audio|video)\//.test(blob.type)){
       const ty = sniffAudioType(new Uint8Array(await blob.slice(0,12).arrayBuffer()));
       if(ty) blob = new Blob([blob], {type: ty});
     }
+    if(annule()) return;
     blobUrl = URL.createObjectURL(blob);
+    if(miniPlayer && miniPlayer.el === el) miniPlayer.blobUrl = blobUrl;
     audio.src = blobUrl;
     pp.textContent = '▶';
   }catch(e){
+    if(annule()) return;
     console.warn('Lecture directe impossible, on tente en streaming :', e.message);
     audio.src = url;
     pp.textContent = '▶';
@@ -4137,14 +4161,19 @@ async function playAudio(songId, versionId){
   };
 
   // Si on a une URL blob, elle est locale, donc play() marche tout de suite
-  if(audio.src && audio.src.startsWith('blob:')){
+  if(myToken === audioToken && audio.src && audio.src.startsWith('blob:')){
     audio.play().catch(err => console.warn('Lecture auto bloquée :', err.message));
   }
 }
 
 function closeMiniPlayer(){
+  audioToken++;   // annule tout téléchargement encore en cours
+  // coupe TOUS les lecteurs audio de la page (y compris ceux d'un clic précédent encore en chargement)
+  document.querySelectorAll('audio').forEach(a => {
+    try{ a.pause(); a.removeAttribute('src'); a.load(); }catch(e){}
+    try{ a.remove(); }catch(e){}
+  });
   if(!miniPlayer) return;
-  try{ miniPlayer.audio.pause(); }catch(e){}
   if(miniPlayer.blobUrl){
     try{ URL.revokeObjectURL(miniPlayer.blobUrl); }catch(e){}
   }
