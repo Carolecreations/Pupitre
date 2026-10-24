@@ -525,9 +525,13 @@ const ME_KEY='pupitre-me', SYNC_KEY='pupitre-sync';
 const COLS=['users','groups','songs','songVersions','events','tasks','comments','reviews','contacts'];
 let sync=null;
 try{ sync=JSON.parse(localStorage.getItem(SYNC_KEY)); }catch(e){}
+// la base est toujours celle de Pupitre : un lien ou un ancien réglage ne peut pas la remplacer
+// (sinon le jeton de connexion du musicien partirait vers un autre serveur)
+const OFFICIAL_DB = FIREBASE_CONFIG.databaseURL.replace(/\/+$/,'');
+if(sync) sync.db = OFFICIAL_DB;
 (function(){
   const m=location.hash.match(/room=([^&]+)&db=(.+)$/);
-  if(m){ sync={room:decodeURIComponent(m[1]), db:decodeURIComponent(m[2])};
+  if(m){ sync={room:decodeURIComponent(m[1]), db:OFFICIAL_DB};
     localStorage.setItem(SYNC_KEY,JSON.stringify(sync));
     history.replaceState(null,'',location.pathname+location.search); }
 })();
@@ -638,7 +642,7 @@ const apwStorage = new Appwrite.Storage(apwClient);
 const APW_BUCKET = 'audio';
 
 /* ============ APPWRITE DATA SYNC (Phase 1) ============ */
-const syncBase=()=>sync.db.replace(/\/+$/,'')+'/rooms/'+encodeURIComponent(sync.room);
+const syncBase=()=>OFFICIAL_DB+'/rooms/'+encodeURIComponent(sync.room);
 const snap=d=>{ const o={}; COLS.forEach(c=>{ o[c]={}; (d[c]||[]).forEach(it=>{ o[c][it.id]=JSON.stringify(it); }); }); return o; };
 function setStatus(st){
   syncState=st;
@@ -909,8 +913,8 @@ function openSyncModal(){
     onSubmit: fd=>{
       const db=fd.db.trim(), room=fd.room.trim();
       if(db && room){
-        if(!/^https:\/\//.test(db)){ alert("L'URL doit commencer par https://"); return; }
-        localStorage.setItem(SYNC_KEY,JSON.stringify({db,room}));
+        if(db.replace(/\/+$/,'') !== OFFICIAL_DB){ alert("Cette adresse n'est pas celle de la base Pupitre."); return; }
+        localStorage.setItem(SYNC_KEY,JSON.stringify({db:OFFICIAL_DB,room}));
       } else localStorage.removeItem(SYNC_KEY);
       location.reload();
     }
@@ -1035,7 +1039,7 @@ function render(){
 
 /* ============ ACCÈS : INVITATION (QR / CODE) + RECONNEXION GOOGLE ============ */
 const DB_URL = FIREBASE_CONFIG.databaseURL.replace(/\/+$/,'');
-const INVITE_DAYS = 365;
+const INVITE_DAYS = 7;
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const ADMIN_KEY = 'pupitre-admin', INVITE_KEY = 'pupitre-invite-pending';
 let myMember = null;          // accès de cet appareil : {userId, admin}
@@ -1105,6 +1109,8 @@ async function claimInvite_(raw){
     {method:'PUT', body:JSON.stringify(Object.assign({userId:inv.userId, code, via:'invite', at:Date.now()}, inv.admin ? {admin:true} : {}))});
   if(!r.ok) return {err:'Invitation refusée (' + r.status + ').'};
   await fetch(withAuth(DB_URL + '/userRooms/' + u.uid + '.json', t), {method:'PUT', body:JSON.stringify({room:inv.room, userId:inv.userId})}).catch(()=>{});
+  // le code ne sert qu'une fois : on l'efface dès qu'il a été utilisé
+  await fetch(withAuth(DB_URL + '/invites/' + code + '.json', t), {method:'DELETE'}).catch(()=>{});
   storeAccess(inv.room, inv.userId, !!inv.admin);
   return {ok:true};
 }
@@ -3203,7 +3209,7 @@ function renderGroupJournal(g){
         ${c.phone ? `<div class="small" style="margin-top:8px">📞 <a href="tel:${esc(c.phone.replace(/\s/g,''))}">${esc(c.phone)}</a></div>` : ''}
         ${c.email ? `<div class="small" style="margin-top:4px">✉️ <a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>` : ''}
         ${c.address ? `<div class="small" style="margin-top:4px">📍 ${esc(c.address)}</div>` : ''}
-        ${c.website ? `<div class="small" style="margin-top:4px">🌐 <a href="${esc(c.website)}" target="_blank" rel="noopener">${esc(c.website.replace(/^https?:\/\//,''))}</a></div>` : ''}
+        ${c.website && /^https?:\/\//i.test(c.website) ? `<div class="small" style="margin-top:4px">🌐 <a href="${esc(c.website)}" target="_blank" rel="noopener">${esc(c.website.replace(/^https?:\/\//,''))}</a></div>` : ''}
         ${c.notes ? `<div class="small" style="margin-top:8px;white-space:pre-wrap;color:var(--muted)">${esc(c.notes)}</div>` : ''}
       </div>
     `).join('')}</div>` : `<div class="empty">Aucun contact. Ajoute la première salle, le premier régisseur, ou ton contact presse.</div>`}
@@ -3589,7 +3595,7 @@ function openTechTextModal(eid){
 
 const imgCache = {};
 const imgKey = id => 'pupitre-img-'+id;
-const imgUrl = id => sync.db.replace(/\/+$/,'')+'/rooms/'+encodeURIComponent(sync.room)+'/images/'+id+'.json';
+const imgUrl = id => OFFICIAL_DB+'/rooms/'+encodeURIComponent(sync.room)+'/images/'+id+'.json';
 
 function shrinkImage(file){
   return new Promise((resolve,reject)=>{
