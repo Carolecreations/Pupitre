@@ -409,7 +409,7 @@ try{
       .catch(e => console.warn('setPersistence :', e));
   }
 }catch(e){ console.warn('Firebase init :', e); }
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 const SUPABASE_URL = 'https://ggbdsdupicfmpogmendp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_wW9OsvjI3RW63jMLpJtOvw_UzYk6Ift';
 
@@ -640,6 +640,84 @@ const apwAccount = new Appwrite.Account(apwClient);
 const apwDatabases = new Appwrite.Databases(apwClient);
 const apwStorage = new Appwrite.Storage(apwClient);
 const APW_BUCKET = 'audio';
+const apwFunctions = new Appwrite.Functions(apwClient);
+const APW_JOIN_FN = '6adc91bc000293f942c7';   // fonction « rejoindre-groupe »
+const TEAM_KEY = 'pupitre-team';
+// Transition : tant que les tables sont encore ouvertes à tous, un échec de l'équipe ne bloque pas
+// la synchro (les lignes sans étiquette seront étiquetées à l'étape 3). Passera à true une fois fermées.
+const TEAM_REQUIRED = false;
+
+/* ============ APPWRITE : ÉQUIPE DE L'ESPACE ============ */
+// Chaque espace a son équipe Appwrite. La fonction « rejoindre-groupe » vérifie l'invitation
+// dans Firebase puis ajoute cet appareil à l'équipe. Tout ce que Pupitre crée chez Appwrite
+// est ensuite réservé à cette équipe : les autres espaces et les inconnus n'y ont pas accès.
+let apwTeamId = null;
+try{ const t = JSON.parse(localStorage.getItem(TEAM_KEY)); if(t && sync && t.room === sync.room) apwTeamId = t.teamId; }catch(e){}
+let apwJoining = null;
+
+function waitFbUser(ms){
+  return new Promise(resolve => {
+    const t0 = Date.now();
+    (function check(){
+      if(fbUser !== undefined || Date.now() - t0 > ms) return resolve();
+      setTimeout(check, 300);
+    })();
+  });
+}
+async function apwCall(body){
+  const ex = await apwFunctions.createExecution(APW_JOIN_FN, JSON.stringify(body), false, '/', 'POST', {'content-type':'application/json'});
+  let r = {};
+  try{ r = JSON.parse(ex.responseBody || '{}'); }catch(e){}
+  if(!r.ok) throw new Error(r.err || ('statut ' + ex.responseStatusCode));
+  return r;
+}
+// Rejoint l'équipe de l'espace (une fois par appareil, puis vérifié à chaque démarrage)
+function joinAppwriteTeam(){
+  if(apwJoining) return apwJoining;
+  apwJoining = (async () => {
+    try{
+      if(!sync || !fbAuth) throw new Error('synchro ou connexion indisponible');
+      await waitFbUser(10000);
+      const u = fbAuth.currentUser;
+      if(!u) throw new Error('non connecté');
+      const r = await apwCall({action:'join', room:sync.room, token: await u.getIdToken()});
+      apwTeamId = r.teamId;
+      localStorage.setItem(TEAM_KEY, JSON.stringify({room:sync.room, teamId:r.teamId}));
+      return r.teamId;
+    } finally { apwJoining = null; }
+  })();
+  return apwJoining;
+}
+async function ensureTeam(){
+  if(apwTeamId) return apwTeamId;
+  try{ return await joinAppwriteTeam(); }
+  catch(e){
+    if(TEAM_REQUIRED) throw e;
+    console.warn('[Appwrite] équipe indisponible :', e.message);
+    return null;
+  }
+}
+const teamPerms = () => !apwTeamId ? undefined : [
+  Appwrite.Permission.read(Appwrite.Role.team(apwTeamId)),
+  Appwrite.Permission.update(Appwrite.Role.team(apwTeamId)),
+  Appwrite.Permission.delete(Appwrite.Role.team(apwTeamId))
+];
+// Retire de l'équipe tous les appareils d'un musicien (administrateur seul)
+async function revokeAppwrite(userId){
+  const u = fbAuth && fbAuth.currentUser;
+  if(!u || !sync) return;
+  await apwCall({action:'revoke', room:sync.room, token: await u.getIdToken(), appUserId:userId});
+}
+// Jeton court pour télécharger l'audio réservé à l'équipe (les cookies tiers sont souvent bloqués)
+let apwJwt = null, apwJwtAt = 0;
+async function apwAuthHeaders(){
+  if(!apwJwt || Date.now() - apwJwtAt > 10*60000){
+    await ensureAppwriteSession();
+    apwJwt = (await apwAccount.createJWT()).jwt;
+    apwJwtAt = Date.now();
+  }
+  return {'X-Appwrite-Project': APW_PROJECT, 'X-Appwrite-JWT': apwJwt};
+}
 
 /* ============ APPWRITE DATA SYNC (Phase 1) ============ */
 const syncBase=()=>OFFICIAL_DB+'/rooms/'+encodeURIComponent(sync.room);
@@ -699,13 +777,15 @@ async function pushToAppwrite() {
     }
   });
   if (!updates.length && !deletes.length) { if (ver === v) dirty = false; return; }
+  await ensureTeam();   // une fois les tables fermées, sans équipe on n'écrit rien (ligne illisible pour le groupe)
+  const perms = teamPerms();
   for (const u of updates) {
     const payload = { id: u.id, room: sync.room, json: JSON.stringify(u.data) };
     try {
-      await apwDatabases.createDocument(APW_DB, u.col, u.id, payload);
+      await apwDatabases.createDocument(APW_DB, u.col, u.id, payload, perms);
     } catch (e) {
       if (e.code === 409 || /already exists/.test(e.message)) {
-        await apwDatabases.updateDocument(APW_DB, u.col, u.id, payload);
+        await apwDatabases.updateDocument(APW_DB, u.col, u.id, payload, perms);
       } else throw e;
     }
   }
@@ -787,6 +867,9 @@ async function initAppwriteSync() {
   try {
     try { await apwAccount.get(); }
     catch { await apwAccount.createAnonymousSession(); }
+    // vérifie l'invitation et rejoint l'équipe de l'espace (sinon : copie locale, nouvel essai dans 30 s)
+    try { await joinAppwriteTeam(); }
+    catch (e) { if (TEAM_REQUIRED) throw e; console.warn('[Appwrite] équipe indisponible :', e.message); }
     const remote = await loadFromAppwrite();
     if (dirty) {
       // modifications faites hors ligne : on les garde, par-dessus les donnees du serveur
@@ -1203,6 +1286,7 @@ async function revokeAccess(userId, silent){
     const v = (r.ok && await r.json()) || {};
     const keys = Object.keys(v).filter(k => v[k] && v[k].userId===userId && !v[k].admin);
     await Promise.all(keys.map(k => dbCall('DELETE', 'members/' + room + '/' + k)));
+    try{ await revokeAppwrite(userId); }catch(e){ console.warn('[Appwrite] retrait équipe :', e.message); }
     if(!silent){ alert(keys.length ? 'Accès retiré.' : 'Aucun appareil à retirer.'); refreshJoined(); }
   }catch(e){ if(!silent) alert('Impossible : ' + ((e && e.message) || e)); }
 }
@@ -3671,7 +3755,8 @@ async function uploadAudio(file, onProgress){
   }
   try{
     await ensureAppwriteSession();
-    const f = await apwStorage.createFile(APW_BUCKET, Appwrite.ID.unique(), file, undefined, onProgress);
+    await ensureTeam();
+    const f = await apwStorage.createFile(APW_BUCKET, Appwrite.ID.unique(), file, teamPerms(), onProgress);
     return audioViewUrl(f.$id);
   }catch(e){
     if(e && (e.code === 401 || e.code === 403)) throw new Error('droits insuffisants sur le stockage audio (Appwrite : bucket « audio », réglages, permissions).');
@@ -4121,7 +4206,7 @@ async function playAudio(songId, versionId){
   let blobUrl = null;
   const annule = () => myToken !== audioToken;
   try{
-    const r = await fetch(url);
+    const r = await fetch(url, isAppwriteAudio(url) ? {headers: await apwAuthHeaders()} : undefined);
     if(annule()) return;
     if(!r.ok) throw new Error('HTTP ' + r.status);
     const total = Number(r.headers.get('content-length')) || 0;
