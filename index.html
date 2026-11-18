@@ -427,7 +427,7 @@ try{
       .catch(e => console.warn('setPersistence :', e));
   }
 }catch(e){ console.warn('Firebase init :', e); }
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 const SUPABASE_URL = 'https://ggbdsdupicfmpogmendp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_wW9OsvjI3RW63jMLpJtOvw_UzYk6Ift';
 
@@ -1106,8 +1106,26 @@ const songsInProgress = () => data.songs.filter(s =>
   !['pret','concert','archive'].includes(s.status)
 ).sort((a,b)=>(a.title||'').localeCompare(b.title||'','fr',{sensitivity:'base'}));
 
+/* Ouvert dans un cadre (par ex. Lifehub) : le navigateur y cloisonne la connexion et la
+   synchro (surtout sur iPhone/iPad), d'où des données incomplètes. On propose d'ouvrir
+   Pupitre dans sa propre fenêtre, où tout fonctionne. Rien n'est écrit ni effacé ici. */
+const IN_FRAME = (() => { try{ return window.self !== window.top; }catch(e){ return true; } })();
+function renderFramed(){
+  const sp = document.getElementById('splash'); if(sp) sp.remove();
+  const url = location.origin + location.pathname;
+  return `
+    <div class="login">
+      <div class="login-card">
+        <h1>Pupitre</h1>
+        <p>Pour que tes groupes, tes musiciens et tes morceaux soient toujours à jour, Pupitre s'ouvre dans sa propre fenêtre.</p>
+        <a class="btn primary" href="${url}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:14px;width:100%;box-sizing:border-box">Ouvrir Pupitre</a>
+        <p class="small muted" style="margin-top:16px">Astuce : une fois ouvert, ajoute-le à ton écran d'accueil (Partager, puis « Sur l'écran d'accueil ») pour l'ouvrir directement.</p>
+      </div>
+    </div>`;
+}
 function render(){
   const root = $('#root');
+  if(IN_FRAME){ root.innerHTML = renderFramed(); return; }
   const splashUp = !!document.getElementById('splash');
   if(fbAuth && (fbUser === undefined || identityPending)){
     if(splashUp) return;
