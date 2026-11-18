@@ -427,7 +427,7 @@ try{
       .catch(e => console.warn('setPersistence :', e));
   }
 }catch(e){ console.warn('Firebase init :', e); }
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.2.0';
 const SUPABASE_URL = 'https://ggbdsdupicfmpogmendp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_wW9OsvjI3RW63jMLpJtOvw_UzYk6Ift';
 
@@ -1275,9 +1275,10 @@ async function autoClaimPending(){
   ui.loginMsg = res.err;
   return false;
 }
-async function createInvite(userId){
+async function createInvite(userId, asAdmin){
   const code = genCode();
-  const admin = !!(myMember && myMember.userId === userId);
+  // administrateur : sa propre invitation (autre appareil), ou un second administrateur choisi
+  const admin = !!(myMember && myMember.userId === userId) || asAdmin === true;
   const body = {room: sync.room, userId, exp: Date.now() + INVITE_DAYS*86400000, created: Date.now()};
   if(admin) body.admin = true;
   const r = await dbCall('PUT', 'invites/' + code, body);
@@ -1910,6 +1911,7 @@ function renderMusicians(){
           </div>
                   <div class="row" style="gap:6px;flex-wrap:wrap">
             ${isRoomAdmin()?`<button class="btn sm primary" data-member-invite="${u.id}">Inviter</button>`:''}
+            ${(isRoomAdmin() && !(myMember && myMember.userId===u.id))?`<button class="btn sm" data-member-invite-admin="${u.id}" title="Il pourra lui aussi inviter les musiciens">👑 Inviter comme administrateur</button>`:''}
             ${(isRoomAdmin() && joined[u.id] && u.id!==ui.currentUserId)?`<button class="btn sm" data-member-revoke="${u.id}">Retirer l'accès</button>`:''}
             <button class="btn sm" data-user-edit="${u.id}" title="Modifier nom, initiales, instruments, couleur">✎ Modifier</button>
             ${free.length?`<select data-musician-add="${u.id}" style="width:auto;padding:5px 8px;font-size:13px"><option value="">+ Groupe…</option>${free.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select>`:''}
@@ -3141,6 +3143,7 @@ function renderGroupMembers(g){
         ${adm ? `<div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap">
   <button class="btn sm" data-member-instrument="${g.id}:${u.id}">Instrument</button>
             ${isRoomAdmin()?`<button class="btn sm primary" data-member-invite="${u.id}">Inviter</button>`:''}
+            ${(isRoomAdmin() && !(myMember && myMember.userId===u.id))?`<button class="btn sm" data-member-invite-admin="${u.id}" title="Il pourra lui aussi inviter les musiciens">👑 Inviter comme administrateur</button>`:''}
             ${isRoomAdmin()?`<button class="btn sm" data-fin-access="${g.id}:${u.id}">${finAccessOn(u.id,g.id)?'💶 Retirer l\'accès finances':'💶 Accès finances'}</button>`:''}
   <button class="btn sm" data-member-color="${u.id}">Couleur</button>
   <button class="btn sm" data-member-role="${g.id}:${u.id}">${m.role==='admin'?'Rendre membre':'Passer admin'}</button>
@@ -4388,6 +4391,11 @@ if(uc) uc.addEventListener('click', ()=>{
 });
   const lg = $('[data-link-google]'); if(lg) lg.addEventListener('click', linkGoogle);
   $$('[data-member-invite]').forEach(b=>b.addEventListener('click',()=>openInviteModal(b.dataset.memberInvite)));
+  $$('[data-member-invite-admin]').forEach(b=>b.addEventListener('click',()=>{
+    const u = user(b.dataset.memberInviteAdmin); if(!u) return;
+    if(!confirm('Inviter ' + u.name + ' comme ADMINISTRATEUR ?\n\nIl pourra inviter les musiciens et retirer des accès, comme toi.')) return;
+    openInviteModal(u.id, true);
+  }));
   $$('[data-member-revoke]').forEach(b=>b.addEventListener('click',()=>revokeAccess(b.dataset.memberRevoke)));
   const adminCount = g => g.memberships.filter(m=>m.role==='admin').length;
  $$('[data-add-member]').forEach(sel=>sel.addEventListener('change',()=>{
@@ -5685,12 +5693,12 @@ function copyInvite(){
   try{ ok = document.execCommand('copy'); }catch(e){}
   alert(ok ? 'Invitation copiée. Colle-la dans un message.' : 'Copie impossible : le texte est sélectionné, touche-le et choisis « Copier ».');
 }
-async function openInviteModal(uid_){
+async function openInviteModal(uid_, asAdmin){
   const u = user(uid_); if(!u) return;
   if(!sync){ alert("Active d'abord la synchro (menu Synchro)."); return; }
   if(!isRoomAdmin()){ alert("Seul l'administrateur principal peut inviter."); return; }
   let inv;
-  try{ inv = await createInvite(u.id); }
+  try{ inv = await createInvite(u.id, asAdmin); }
   catch(e){ alert("Impossible de créer l'invitation (" + ((e && e.message) || e) + "). Vérifie ta connexion."); return; }
   window._pupInvite = inviteText(u, inv.code);
   let svg = null;
@@ -5698,7 +5706,9 @@ async function openInviteModal(uid_){
   openModal({
     title:'Inviter '+u.name,
     submitLabel:'Copier le message',
-    body:`<p class="sub" style="margin:0">${inv.admin
+    body:`<p class="sub" style="margin:0">${(inv.admin && asAdmin === true)
+        ? '👑 Invitation ADMINISTRATEUR pour '+esc(u.name)+' : il pourra inviter les autres musiciens. Valable '+INVITE_DAYS+' jours, utilisable une seule fois. Envoie-la à lui seul.'
+        : inv.admin
         ? "C'est TON invitation (droits d'administrateur) pour un autre appareil à toi. Ne la montre à personne d'autre."
         : esc(u.name)+' scanne ce QR code avec l\'appareil photo de son téléphone, ou tape le code. Valable '+INVITE_DAYS+' jours, utilisable une seule fois.'}</p>
       ${svg ? `<div style="display:grid;place-items:center">${svg}</div>` : ''}
