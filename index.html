@@ -409,7 +409,7 @@ try{
       .catch(e => console.warn('setPersistence :', e));
   }
 }catch(e){ console.warn('Firebase init :', e); }
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 const SUPABASE_URL = 'https://ggbdsdupicfmpogmendp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_wW9OsvjI3RW63jMLpJtOvw_UzYk6Ift';
 
@@ -1186,8 +1186,8 @@ async function claimInvite_(raw){
   catch(e){ return {err:'Pas de connexion internet.'}; }
   if(!r.ok) return {err:'Accès à la base refusé (' + r.status + ').'};
   const inv = await r.json();
-  if(!inv || !inv.room || !inv.userId) return {err:'Code inconnu ou déjà utilisé. Demande-en un nouveau à Jacques.'};
-  if(inv.exp && inv.exp < Date.now()) return {err:'Ce code a expiré. Demande-en un nouveau à Jacques.'};
+  if(!inv || !inv.room || !inv.userId) return {err:'Code inconnu ou déjà utilisé. Demande-en un nouveau à l'administrateur de ton groupe.'};
+  if(inv.exp && inv.exp < Date.now()) return {err:'Ce code a expiré. Demande-en un nouveau à l'administrateur de ton groupe.'};
   r = await fetch(withAuth(DB_URL + '/members/' + encodeURIComponent(inv.room) + '/' + u.uid + '.json', t),
     {method:'PUT', body:JSON.stringify(Object.assign({userId:inv.userId, code, via:'invite', at:Date.now()}, inv.admin ? {admin:true} : {}))});
   if(!r.ok) return {err:'Invitation refusée (' + r.status + ').'};
@@ -1312,7 +1312,7 @@ function renderLogin(){
     <div class="login">
       <div class="login-card">
         <h1>Pupitre</h1>
-        <p>${pend ? 'Connexion avec ton invitation…' : "Scanne le QR code reçu de Jacques, ou tape ton code d'invitation."}</p>
+        <p>${pend ? 'Connexion avec ton invitation…' : "Scanne le QR code reçu de l'administrateur de ton groupe, ou tape ton code d'invitation."}</p>
         ${ui.loginMsg ? `<div class="small" style="color:var(--danger);margin-bottom:12px">${esc(ui.loginMsg)}</div>` : ''}
         <div class="field"><input id="login-code" placeholder="Code (ex. K7M2-9XQP)" autocomplete="off" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase;letter-spacing:2px;font-size:18px"></div>
         <button class="btn primary" id="login-go" style="margin-top:14px;width:100%">Entrer</button>
@@ -1513,7 +1513,7 @@ function bindShell(){
  const lo = $('[data-logout]'); if(lo) lo.addEventListener('click', async ()=>{
   const cu = fbAuth && fbAuth.currentUser;
   const hasGoogle = cu && (cu.providerData||[]).some(p=>p.providerId==='google.com');
-  if(cu && !hasGoogle && !confirm("Te déconnecter ?\n\nSans compte Google lié (bouton 🔗), tu auras besoin d'une nouvelle invitation de Jacques pour revenir.")) return;
+  if(cu && !hasGoogle && !confirm("Te déconnecter ?\n\nSans compte Google lié (bouton 🔗), tu auras besoin d'une nouvelle invitation de l'administrateur pour revenir.")) return;
   closeMiniPlayer();
   if(fbAuth){ try{ await fbAuth.signOut(); }catch(e){} }
   ui.currentUserId = null;
@@ -5780,7 +5780,7 @@ if(fbAuth){
       localStorage.removeItem(INVITE_KEY);
     }
     if(!m && !u.isAnonymous && (u.providerData||[]).some(p=>p.providerId==='google.com')){
-      ui.loginMsg = "Ce compte Google n'est lié à aucun musicien. Demande une invitation à Jacques.";
+      ui.loginMsg = "Ce compte Google n'est lié à aucun musicien. Demande une invitation à l'administrateur de ton groupe.";
       try{ await fbAuth.signOut(); }catch(e){}
       return;
     }
