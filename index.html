@@ -427,7 +427,7 @@ try{
       .catch(e => console.warn('setPersistence :', e));
   }
 }catch(e){ console.warn('Firebase init :', e); }
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.2.2';
 const SUPABASE_URL = 'https://ggbdsdupicfmpogmendp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_wW9OsvjI3RW63jMLpJtOvw_UzYk6Ift';
 
@@ -1143,7 +1143,7 @@ function render(){
     switch(ui.view){
       case 'calendar': return renderCalendar();
       case 'concerts': return renderConcerts();
-      case 'musicians': return isSuperAdmin() ? renderMusicians() : renderGroups();
+      case 'musicians': return (isRoomAdmin() || isSuperAdmin()) ? renderMusicians() : renderGroups();
       case 'search':   return renderSearch();
       case 'groups': return renderGroups();
       case 'group':  return renderGroup();
@@ -1469,7 +1469,7 @@ function renderShell(content){
         <button class="nav-item ${ui.view==='search'?'active':''}" data-nav="search">
   <span>🔍</span> Rechercher
 </button>
-        ${isSuperAdmin() ? `<button class="nav-item ${ui.view==='musicians'?'active':''}" data-nav="musicians">
+        ${(isRoomAdmin() || isSuperAdmin()) ? `<button class="nav-item ${ui.view==='musicians'?'active':''}" data-nav="musicians">
           <span>🧑‍🎤</span> Musiciens
         </button>` : ''}
       </nav>
