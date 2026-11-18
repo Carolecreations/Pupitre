@@ -1,4 +1,4 @@
-const CACHE = 'pupitre-v3';   // ✅ incrémenté : force la mise à jour (n'efface aucune donnée)
+const CACHE = 'pupitre-v4';   // ✅ incrémenté : force la mise à jour (n'efface aucune donnée)
 const ASSETS = [
   './',
   './index.html',
